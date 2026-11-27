@@ -14,6 +14,12 @@ namespace DigiByte.Pay.Api.Services;
 public class InvoiceMonitor : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Set to <c>false</c> to keep the background polling loop from running; passes then run only through
+    /// <see cref="RunOnceAsync"/>. The test host turns it off so each test decides exactly when a pass runs.
+    /// </summary>
+    public const string BackgroundLoopConfigKey = "DigiPay:InvoiceMonitor:BackgroundLoop";
     // Below this ratio of the expected amount we treat the payment as underpaid
     // rather than accepting it. 1% rounding slack to allow for fiat→DGB rounding.
     private const decimal UnderpayTolerance = 0.99m;
@@ -24,23 +30,28 @@ public class InvoiceMonitor : BackgroundService
     private readonly IDdChainProvider _ddChains;
     private readonly DdAvailability _ddAvailability;
     private readonly ILogger<InvoiceMonitor> _logger;
+    private readonly bool _backgroundLoop;
 
     public InvoiceMonitor(
         IServiceScopeFactory scopeFactory,
         IChainServiceProvider chains,
         IDdChainProvider ddChains,
         DdAvailability ddAvailability,
-        ILogger<InvoiceMonitor> logger)
+        ILogger<InvoiceMonitor> logger,
+        IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _chains = chains;
         _ddChains = ddChains;
         _ddAvailability = ddAvailability;
         _logger = logger;
+        _backgroundLoop = configuration.GetValue(BackgroundLoopConfigKey, true);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_backgroundLoop) return;
+
         // Give the host a moment to finish wiring up the DB, SignalR hub, etc.
         await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
 
@@ -133,12 +144,7 @@ public class InvoiceMonitor : BackgroundService
             {
                 if (!await TryLockAsync(session, options, store, scope, notifier, now, ct))
                 {
-                    if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
-                    {
-                        session.Status = PaySessionStatus.Expired;
-                        await PublishAsync(notifier, session, ct);
-                        await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
-                    }
+                    await ExpireIfDueAsync(session, store, db, notifier, webhookDispatcher, now, ct);
                     return;
                 }
             }
@@ -180,12 +186,7 @@ public class InvoiceMonitor : BackgroundService
         if (paymentTx is null)
         {
             // No payment on chain yet. Expire pending sessions past their deadline.
-            if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
-            {
-                session.Status = PaySessionStatus.Expired;
-                await PublishAsync(notifier, session, ct);
-                await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
-            }
+            await ExpireIfDueAsync(session, store, db, notifier, webhookDispatcher, now, ct);
             return;
         }
 
@@ -251,6 +252,26 @@ public class InvoiceMonitor : BackgroundService
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Expires a pending session past its deadline, announcing it (checkout update and <c>session.expired</c> webhook)
+    /// exactly once. The move from pending to expired is claimed in the database first, so when two passes overlap
+    /// (a second app instance, or a manual <see cref="RunOnceAsync"/> next to the background loop) only the pass that
+    /// made the change sends the webhook. A pass that loses the claim leaves the session as it loaded it, so it never
+    /// overwrites what the winning pass saved.
+    /// </summary>
+    private static async Task ExpireIfDueAsync(PaySession session, PayStore store, DigiPayDbContext db, CheckoutNotifier notifier,
+        WebhookDispatcher webhookDispatcher, DateTime now, CancellationToken ct)
+    {
+        if (session.Status != PaySessionStatus.Pending || now <= session.ExpiresAt) return;
+        var claimed = await db.Sessions
+            .Where(s => s.Id == session.Id && s.Status == PaySessionStatus.Pending)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.Status, PaySessionStatus.Expired), ct);
+        if (claimed == 0) return;
+        session.Status = PaySessionStatus.Expired;
+        await PublishAsync(notifier, session, ct);
+        await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
     }
 
     private static Task PublishAsync(CheckoutNotifier notifier, PaySession session, CancellationToken ct) =>
@@ -406,12 +427,7 @@ public class InvoiceMonitor : BackgroundService
         if (receipt.Cents == 0)
         {
             // No payment on chain yet. Expire pending sessions past their deadline.
-            if (session.Status == PaySessionStatus.Pending && now > session.ExpiresAt)
-            {
-                session.Status = PaySessionStatus.Expired;
-                await PublishAsync(notifier, session, ct);
-                await webhookDispatcher.DispatchAsync(store, session, "session.expired", ct);
-            }
+            await ExpireIfDueAsync(session, store, db, notifier, webhookDispatcher, now, ct);
             return;
         }
 
