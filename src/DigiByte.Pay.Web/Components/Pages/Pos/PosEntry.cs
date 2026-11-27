@@ -14,19 +14,28 @@ public static class PosEntry
 {
     public const string Dgb = "DGB";
 
+    /// <summary>DigiDollar: USD-pegged, typed in dollars with 2 decimals, written "12.50 DD" (specs/033 US1).</summary>
+    public const string Dd = "DD";
+
     /// <summary>Longest typed amount, digits and point included.</summary>
     public const int MaxLength = 16;
 
     public static bool IsDgb(string? code) => string.Equals(code, Dgb, StringComparison.OrdinalIgnoreCase);
 
-    public static int DecimalsFor(string? code) => IsDgb(code) ? 8 : Fiat.Decimals(code);
+    public static bool IsDd(string? code) => string.Equals(code, Dd, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>A stored or picked till currency, normalised ("php" → "PHP"); null when it isn't DGB or a wallet currency.</summary>
+    /// <summary>A coin the till charges in directly (DGB or DD), as opposed to a fiat price converted to DGB.</summary>
+    public static bool IsCoin(string? code) => IsDgb(code) || IsDd(code);
+
+    public static int DecimalsFor(string? code) => IsDgb(code) ? 8 : IsDd(code) ? 2 : Fiat.Decimals(code);
+
+    /// <summary>A stored or picked till currency, normalised ("php" → "PHP"); null when it isn't DGB, DD or a wallet currency.</summary>
     public static string? NormalizeCurrency(string? code)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
         var c = code.Trim();
         if (IsDgb(c)) return Dgb;
+        if (IsDd(c)) return Dd;
         return FiatCurrencies.Find(c)?.Code.ToUpperInvariant();
     }
 
@@ -87,13 +96,15 @@ public static class PosEntry
 
     /// <summary>Rounded to the currency's decimals, half away from zero (DGB to the satoshi).</summary>
     public static decimal Round(decimal value, string? code) =>
-        IsDgb(code) ? Math.Round(value, 8, MidpointRounding.AwayFromZero) : Fiat.Round(value, code);
+        IsDgb(code) ? Math.Round(value, 8, MidpointRounding.AwayFromZero)
+        : IsDd(code) ? Math.Round(value, 2, MidpointRounding.AwayFromZero)
+        : Fiat.Round(value, code);
 
     /// <summary>The symbol written before an amount ("₱", "KWD"); empty for DGB, which is written after.</summary>
-    public static string Symbol(string? code) => IsDgb(code) ? "" : FiatCurrencies.SymbolFor(code).TrimEnd();
+    public static string Symbol(string? code) => IsCoin(code) ? "" : FiatCurrencies.SymbolFor(code).TrimEnd();
 
     /// <summary>Whether the symbol is a word ("KWD", "kr") that needs a space before the number.</summary>
-    public static bool SymbolIsWord(string? code) => !IsDgb(code) && FiatCurrencies.SymbolFor(code).EndsWith(' ');
+    public static bool SymbolIsWord(string? code) => !IsCoin(code) && FiatCurrencies.SymbolFor(code).EndsWith(' ');
 
     /// <summary>The typed text as the readout shows it: integer part grouped, the fraction exactly as typed.</summary>
     public static string TypedNumber(string amount, string? code)
@@ -112,17 +123,41 @@ public static class PosEntry
     public static string Placeholder(string? code)
     {
         if (IsDgb(code)) return "0";
+        if (IsDd(code)) return "0.00";
         var d = Fiat.Decimals(code);
         return d == 0 ? "0" : "0." + new string('0', d);
     }
 
     /// <summary>A computed value without the symbol: fiat grouped with its decimals ("1,250.00"), DGB trimmed ("12.5").</summary>
     public static string Number(decimal value, string? code) =>
-        IsDgb(code) ? FormatDgb(value) : Fiat.Number(value, code);
+        IsDgb(code) ? FormatDgb(value) : IsDd(code) ? FormatDd(value) : Fiat.Number(value, code);
 
     /// <summary>A computed value with its currency: "₱1,250.00" or "12.5 DGB".</summary>
     public static string Money(decimal value, string? code) =>
-        IsDgb(code) ? $"{FormatDgb(value)} DGB" : Fiat.Format(value, code);
+        IsDgb(code) ? $"{FormatDgb(value)} DGB" : IsDd(code) ? $"{FormatDd(value)} DD" : Fiat.Format(value, code);
+
+    /// <summary>A DigiDollar amount in dollars, grouped with 2 decimals ("1,250.00").</summary>
+    public static string FormatDd(decimal dollars) =>
+        Math.Round(dollars, 2, MidpointRounding.AwayFromZero).ToString("#,0.00", CultureInfo.InvariantCulture);
+
+    /// <summary>A DigiDollar amount from USD cents with its unit ("12.50 DD").</summary>
+    public static string FormatDdCents(long cents) => $"{FormatDd(cents / 100m)} DD";
+
+    /// <summary>The lowest and highest DD amounts DigiPay accepts, in dollars (the API's 100 to 10,000,000 cents).</summary>
+    public const decimal DdMin = 1.00m;
+    public const decimal DdMax = 100_000.00m;
+
+    /// <summary>True when a DD amount is within <see cref="DdMin"/> to <see cref="DdMax"/> (specs/033 FR-016).</summary>
+    public static bool DdInRange(decimal dollars) => dollars >= DdMin && dollars <= DdMax;
+
+    /// <summary>
+    /// The typed amount to keep when the till switches currency to DD: a USD amount carries over as dollars; any
+    /// other amount (another fiat currency or DGB) is cleared, never converted (specs/033 edge case).
+    /// </summary>
+    public static string CarryToDd(string amount, string? fromCode) =>
+        string.Equals(fromCode, "USD", StringComparison.OrdinalIgnoreCase) || IsDd(fromCode)
+            ? (Fits(amount, 2) ? amount : "")
+            : "";
 
     public static string FormatDgb(decimal dgb) => dgb.ToString("0.########", CultureInfo.InvariantCulture);
 

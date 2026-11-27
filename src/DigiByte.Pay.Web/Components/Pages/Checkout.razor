@@ -113,7 +113,7 @@
                 {
                     <TerminalState Status="@session.Status" Txid="@session.PaidTxid" SessionId="@session.Id"
                                    ReturnUrl="@session.ReturnUrl" ReceiptHref="@ReceiptHref"
-                                   ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@session.AmountSatoshis"
+                                   ReceivedSatoshis="@session.ReceivedSatoshis" ExpectedSatoshis="@(session.Currency == "DD" ? session.AmountCentsDd ?? 0 : session.AmountSatoshis)"
                                    Currency="@session.Currency" />
                 }
                 else if (CheckoutStates.IsConfirming(session.Status))

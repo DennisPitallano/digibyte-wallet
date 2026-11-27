@@ -21,7 +21,7 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 | US4 | DD donations | P3 |
 | US5 | The setting says what it does | P2 |
 
-**Hard dependency**: spec 034 (`feature/digipay-dd-payouts`) must be merged before US1 to US4. Phase 2 and US5 don't need it (plan, Delivery order).
+**Hard dependency**: spec 034 (`feature/digipay-dd-payouts`) must be merged before US3 and US4, which write its `DdAddress` rows. Phase 2, US5, US1 and US2 don't touch those tables and can be built first; US1 and US2 stay hidden behind `DIGIPAY_DD_SURFACES`, which isn't turned on until 034's payouts are live (plan, Delivery order; changed 2026-11-27 at the user's request).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -78,37 +78,37 @@ description: "Task list for 033 DigiDollar on every DigiPay payment surface"
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Test `tests/DigiByte.Pay.Api.Tests/PosShiftTotalsDdTests.cs`: Paid and Confirmed DD sessions add `ReceivedSatoshis` (cents) to `collectedDdCents` and add 0 to `collectedDgb`. The Expired and Underpaid split works the same way.
-- [ ] T016 [P] [US1] Tests in `tests/DigiByte.Pay.Web.Tests/PosTillTests.cs`:
+- [X] T015 [P] [US1] Test `tests/DigiByte.Pay.Api.Tests/PosShiftTotalsDdTests.cs`: Paid and Confirmed DD sessions add `ReceivedSatoshis` (cents) to `collectedDdCents` and add 0 to `collectedDgb`. The Expired and Underpaid split works the same way.
+- [X] T016 [P] [US1] Tests in `tests/DigiByte.Pay.Web.Tests/PosTillTests.cs`:
   - DD appears in the currency choice only when the store has DD on and `ddSurfacesEnabled`.
   - A DD charge posts `currency:"DD"`, `amountCentsDd` and an `Idempotency-Key` header.
   - A saved DD till currency on a store with DD off falls back to the store default and shows a toast.
   - A `503 digidollar_node_unavailable` keeps the typed amount and offers "Charge in DGB".
   - Switching the till to DD keeps a USD amount as is and clears an amount typed in another fiat currency or in DGB, never converting it (spec edge case).
-- [ ] T017 [P] [US1] Test `tests/DigiByte.Pay.Web.Tests/TerminalStateTests.cs` (new): `Currency="DD"` with `ReceivedSatoshis=1250` renders "12.50 DD". DGB rendering is unchanged.
+- [X] T017 [P] [US1] Test `tests/DigiByte.Pay.Web.Tests/TerminalStateTests.cs` (new): `Currency="DD"` with `ReceivedSatoshis=1250` renders "12.50 DD". DGB rendering is unchanged.
 
 ### Implementation for User Story 1
 
-- [ ] T018 [P] [US1] Add `Dd = "DD"` to `src/DigiByte.Pay.Web/Components/Pages/Pos/PosEntry.cs`. Also add `IsDd`, make `DecimalsFor("DD")` return 2, and have `NormalizeCurrency` accept `"DD"`.
-- [ ] T019 [P] [US1] Fix `FormatAmount` in `src/DigiByte.Pay.Web/Components/Pages/TerminalState.razor`: DD amounts are cents, formatted `0.00` with the suffix " DD".
-- [ ] T020 [P] [US1] Add `collectedDdCents` (and the DD split for expired and underpaid) to shift totals in `src/DigiByte.Pay.Api/Endpoints/PosEndpoints.cs`. Filter the DGB sums to `Currency == "DGB"`.
-- [ ] T021 [US1] Update `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` for the DD till:
+- [X] T018 [P] [US1] Add `Dd = "DD"` to `src/DigiByte.Pay.Web/Components/Pages/Pos/PosEntry.cs`. Also add `IsDd`, make `DecimalsFor("DD")` return 2, and have `NormalizeCurrency` accept `"DD"`.
+- [X] T019 [P] [US1] Fix `FormatAmount` in `src/DigiByte.Pay.Web/Components/Pages/TerminalState.razor`: DD amounts are cents, formatted `0.00` with the suffix " DD".
+- [X] T020 [P] [US1] Add `collectedDdCents` (and the DD split for expired and underpaid) to shift totals in `src/DigiByte.Pay.Api/Endpoints/PosEndpoints.cs`. Filter the DGB sums to `Currency == "DGB"`.
+- [X] T021 [US1] Update `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` for the DD till:
   - Show DD in the `CurrencyPicker` only when the store has DigiDollar on and `ddSurfacesEnabled` is set.
   - A DD till takes dollars with 2 decimals and has no price lookup or drift warning.
   - Reject amounts outside 1.00 to 100,000.00 before submitting, showing the limit (FR-016).
   - Switching the till to DD keeps a USD amount as is and clears any other amount (another fiat currency or DGB). It never converts it (spec edge case and Assumptions).
-- [ ] T022 [US1] Update `ChargeAsync` in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
+- [X] T022 [US1] Update `ChargeAsync` in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - A DD charge posts `{currency:"DD", amountCentsDd, storeId, label}`.
   - Every charge, DGB included, sends an `Idempotency-Key` header (a new GUID per charge attempt, reused on retry).
   - `CreatedSession` and `SessionStatusDto` gain `Currency` and `AmountCentsDd`.
-- [ ] T023 [US1] Make the due, waiting, paid (`ConfirmationProgress` at around line 336), late and result screens in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` use the session's `Currency` and amounts instead of the hardcoded DGB. Show shift totals' DD on its own line.
-- [ ] T024 [US1] On load in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`: if the saved till currency is DD and the store no longer has DigiDollar on, or the gate is off, switch to the store default and show a toast explaining why (FR-006).
-- [ ] T025 [US1] Handle `503 digidollar_node_unavailable` on charge in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
+- [X] T023 [US1] Make the due, waiting, paid (`ConfirmationProgress` at around line 336), late and result screens in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor` use the session's `Currency` and amounts instead of the hardcoded DGB. Show shift totals' DD on its own line.
+- [X] T024 [US1] On load in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`: if the saved till currency is DD and the store no longer has DigiDollar on, or the gate is off, switch to the store default and show a toast explaining why (FR-006).
+- [X] T025 [US1] Handle `503 digidollar_node_unavailable` on charge in `src/DigiByte.Pay.Web/Components/Pages/Pos.razor`:
   - show the `ApiError` message
   - keep the typed amount
   - offer one-tap "Charge in DGB", and "Charge in {code}" when the store default is fiat
   - leave no session behind (FR-014, SC-005)
-- [ ] T026 [US1] Docs for the DD till, in the same PR: the POS section of `src/DigiByte.Pay.Web/Components/Pages/Docs.razor` and `Features.razor`, and `CHANGELOG.md` (constitution, Documentation rule).
+- [X] T026 [US1] Docs for the DD till, in the same PR: the POS section of `src/DigiByte.Pay.Web/Components/Pages/Docs.razor` and `Features.razor`, and `CHANGELOG.md` (constitution, Documentation rule).
 
 **Checkpoint**: The POS takes DD end to end. That's the MVP.
 

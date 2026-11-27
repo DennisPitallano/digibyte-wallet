@@ -371,6 +371,152 @@ public class PosTillTests : BunitContext
     public void Key_presses_follow_the_currency_decimals(string before, string key, int decimals, string after) =>
         Assert.Equal(after, PosEntry.Press(before, key, decimals));
 
+    // ----- DigiDollar on the till (specs/033 US1) ------------------------------------------
+
+    private static void OpenPicker(IRenderedComponent<Pos> cut)
+    {
+        cut.Find("button.dp-pos-currency").Click();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#pos-currency-dialog")));
+    }
+
+    private static IEnumerable<AngleSharp.Dom.IElement> PickerRows(IRenderedComponent<Pos> cut, string code) =>
+        cut.FindAll("#pos-currency-dialog .ui-picker-row").Where(r => r.QuerySelector(".ui-picker-code")?.TextContent.Trim() == code);
+
+    private void AllowDd()
+    {
+        api.DdSurfaces = true;
+        api.DigiDollarEnabled = true;
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]   // the server switch is off (no payouts yet)
+    [InlineData(true, false, false)]   // the store hasn't turned DigiDollar on
+    public void DD_is_offered_on_the_till_only_when_the_store_and_the_switch_allow_it(bool surfaces, bool ddOn, bool offered)
+    {
+        api.DdSurfaces = surfaces;
+        api.DigiDollarEnabled = ddOn;
+        var cut = RenderTill("DGB");
+
+        if (offered)
+            cut.WaitForAssertion(() => { OpenPicker(cut); Assert.NotEmpty(PickerRows(cut, "DD")); });
+        else
+        {
+            OpenPicker(cut);
+            Assert.Empty(PickerRows(cut, "DD"));
+        }
+    }
+
+    [Fact]
+    public void A_DD_till_charges_the_typed_dollars_in_cents_with_an_idempotency_key()
+    {
+        AllowDd();
+        var cut = RenderTill("DD");
+        Type(cut, "12.50");
+        Assert.Equal("12.50DD", Readout(cut));
+        Assert.Empty(cut.FindAll(".dp-pos-rate")); // no price lookup, no drift
+
+        cut.WaitForAssertion(() => Assert.False(cut.Find("button.dp-pos-charge").HasAttribute("disabled")));
+        cut.Find("button.dp-pos-charge").Click();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-due]")));
+        Assert.Contains("12.50", cut.Find("[data-dd-due]").TextContent);
+        using var body = JsonDocument.Parse(Assert.Single(api.Charges));
+        Assert.Equal("DD", body.RootElement.GetProperty("currency").GetString());
+        Assert.Equal(1250, body.RootElement.GetProperty("amountCentsDd").GetInt64());
+        Assert.False(body.RootElement.TryGetProperty("amount", out _));
+        Assert.False(string.IsNullOrEmpty(Assert.Single(api.IdempotencyKeys)));
+    }
+
+    [Fact]
+    public void Every_charge_sends_an_idempotency_key()
+    {
+        var cut = RenderTill("DGB");
+        Type(cut, "5");
+        cut.Find("button.dp-pos-charge").Click();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".qr-frame")));
+        Assert.False(string.IsNullOrEmpty(Assert.Single(api.IdempotencyKeys)));
+    }
+
+    [Fact]
+    public void A_DD_amount_outside_the_limits_cannot_be_charged()
+    {
+        AllowDd();
+        var cut = RenderTill("DD");
+        Type(cut, "0.50");
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("[data-dd-range]")));
+        Assert.True(cut.Find("button.dp-pos-charge").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_till_left_on_DD_falls_back_to_the_store_default_once_DD_is_off()
+    {
+        api.DdSurfaces = true;
+        api.DigiDollarEnabled = false;
+        api.StoreDefault = "PHP";
+        api.Price = new("PHP", 0.5m, "coingecko");
+        var cut = RenderTill("DD");
+
+        cut.WaitForAssertion(() => Assert.Contains("PHP", cut.Find("button.dp-pos-currency").TextContent));
+        Assert.Contains("isn't offered for this store any more", cut.Find("[data-dd-notice]").TextContent);
+    }
+
+    [Fact]
+    public void When_the_DD_node_is_down_the_amount_stays_and_the_same_dollars_can_be_charged_in_DGB()
+    {
+        AllowDd();
+        api.DdNodeDown = true;
+        api.Price = new("USD", 0.01m, "coingecko");
+        var cut = RenderTill("DD");
+        Type(cut, "12.50");
+        cut.WaitForAssertion(() => Assert.False(cut.Find("button.dp-pos-charge").HasAttribute("disabled")));
+        cut.Find("button.dp-pos-charge").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("DigiDollar is temporarily unavailable", cut.Find(".dp-pos-error").TextContent));
+        Assert.Equal("12.50DD", Readout(cut));
+        Assert.Empty(cut.FindAll(".qr-frame")); // no payment was made
+
+        cut.Find("[data-dd-fallback]").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, api.Charges.Count));
+        using var body = JsonDocument.Parse(api.Charges[1]);
+        Assert.Equal("USD", body.RootElement.GetProperty("fiatCurrency").GetString());
+        Assert.Equal(12.50m, body.RootElement.GetProperty("fiatAmount").GetDecimal());
+        Assert.Equal(1250m, body.RootElement.GetProperty("amount").GetDecimal());
+    }
+
+    [Fact]
+    public void Switching_to_DD_keeps_a_USD_amount()
+    {
+        AllowDd();
+        api.Price = new("USD", 0.01m, "coingecko");
+        var cut = RenderTill("USD");
+        Type(cut, "12.50");
+
+        cut.WaitForAssertion(() => { OpenPicker(cut); Assert.NotEmpty(PickerRows(cut, "DD")); });
+        PickerRows(cut, "DD").First().Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("12.50DD", Readout(cut)));
+    }
+
+    [Fact]
+    public void Switching_to_DD_asks_before_clearing_an_amount_in_another_currency()
+    {
+        AllowDd();
+        api.Price = new("PHP", 0.5m, "coingecko");
+        var cut = RenderTill("PHP");
+        Type(cut, "100");
+
+        cut.WaitForAssertion(() => { OpenPicker(cut); Assert.NotEmpty(PickerRows(cut, "DD")); });
+        PickerRows(cut, "DD").First().Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("isn't converted to DD", cut.Markup));
+        cut.FindAll("button").First(b => b.TextContent.Trim() == "Clear and switch").Click();
+        cut.WaitForAssertion(() => Assert.Equal("0.00DD", Readout(cut)));
+    }
+
     // A stand-in for the Pay API: price quotes, session creation (echoing the fiat context) and the shift report.
     private sealed class TillApi : IHttpClientFactory
     {
@@ -385,6 +531,24 @@ public class PosTillTests : BunitContext
         /// <summary>The store's defaultCurrency on GET /v1/pay/stores/sto_1.</summary>
         public string? StoreDefault { get; set; }
         public List<string> StoreReads { get; } = new();
+        /// <summary>GET /v1/pay/me: the server's DD surfaces switch and whether the store has DigiDollar on.</summary>
+        public bool DdSurfaces { get; set; }
+        public bool DigiDollarEnabled { get; set; }
+        /// <summary>POST /v1/pay/sessions with currency DD answers 503 digidollar_node_unavailable.</summary>
+        public bool DdNodeDown { get; set; }
+        public List<string?> IdempotencyKeys { get; } = new();
+
+        private string StoreEffectiveDefault =>
+            StoreDefault == "DD" && !(DdSurfaces && DigiDollarEnabled) ? "USD" : StoreDefault ?? "";
+
+        private string DdSession(long cents) => $$"""
+            {"id":"ses_pos","address":"DDtilladdress0001","amountSatoshis":0,"amount":0,
+             "fiatCurrency":null,"fiatAmount":null,"label":null,"memo":null,"status":"pending",
+             "createdAt":"2026-11-26T00:00:00Z","expiresAt":"2030-01-01T00:00:00Z",
+             "receivedSatoshis":0,"confirmations":0,"paidTxid":null,
+             "uri":"digibyte:DDtilladdress0001?amount=1&currency=USD","checkoutUrl":"http://x/pay/ses_pos",
+             "currency":"DD","amountCentsDd":{{cents}}}
+            """;
 
         public HttpClient CreateClient(string name) => new(new Handler(this)) { BaseAddress = new Uri("http://pay-api.test") };
 
@@ -419,8 +583,20 @@ public class PosTillTests : BunitContext
                 {
                     var body = await request.Content!.ReadAsStringAsync(ct);
                     lock (api.Charges) api.Charges.Add(body);
+                    lock (api.IdempotencyKeys)
+                        api.IdempotencyKeys.Add(request.Headers.TryGetValues("Idempotency-Key", out var keys) ? keys.FirstOrDefault() : null);
                     using var doc = JsonDocument.Parse(body);
                     var r = doc.RootElement;
+                    if (r.TryGetProperty("currency", out var cur) && cur.GetString() == "DD")
+                    {
+                        if (api.DdNodeDown)
+                            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                            {
+                                Content = new StringContent("""{"error":"digidollar_node_unavailable","detail":"down"}""", Encoding.UTF8, "application/json"),
+                            };
+                        json = api.lastSession = api.DdSession(r.GetProperty("amountCentsDd").GetInt64());
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+                    }
                     var fc = r.GetProperty("fiatCurrency").ValueKind == JsonValueKind.String ? r.GetProperty("fiatCurrency").GetString() : null;
                     decimal? fa = r.GetProperty("fiatAmount").ValueKind == JsonValueKind.Number ? r.GetProperty("fiatAmount").GetDecimal() : null;
                     json = api.lastSession = api.Session(fc, fa, r.GetProperty("amount").GetDecimal());
@@ -428,7 +604,16 @@ public class PosTillTests : BunitContext
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/stores/sto_1")
                 {
                     lock (api.StoreReads) api.StoreReads.Add(request.Headers.Authorization?.Parameter ?? "");
-                    json = $$"""{"id":"sto_1","name":"Corner Shop","defaultCurrency":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreDefault}\"")}}}""";
+                    json = $$"""{"id":"sto_1","name":"Corner Shop","defaultCurrency":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreDefault}\"")}},"defaultCurrencyEffective":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreEffectiveDefault}\"")}},"digiDollarEnabled":{{(api.DigiDollarEnabled ? "true" : "false")}}}""";
+                }
+                else if (request.Method == HttpMethod.Get && path == "/v1/pay/me")
+                {
+                    json = $$"""
+                        {"id":"mer_1","displayName":"Demo Merchant","ddSurfacesEnabled":{{(api.DdSurfaces ? "true" : "false")}},
+                         "stores":[{"id":"sto_1","name":"Corner Shop","defaultCurrency":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreDefault}\"")}},
+                                    "defaultCurrencyEffective":{{(api.StoreDefault is null ? "null" : $"\"{api.StoreEffectiveDefault}\"")}},
+                                    "digiDollarEnabled":{{(api.DigiDollarEnabled ? "true" : "false")}}}]}
+                        """;
                 }
                 else if (request.Method == HttpMethod.Get && path == "/v1/pay/sessions/ses_pos")
                     json = $$"""{"session":{{api.lastSession ?? api.Session(null, null, 12)}},"merchantName":"Demo Merchant"}""";

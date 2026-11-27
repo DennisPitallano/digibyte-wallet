@@ -122,6 +122,8 @@
         _ => "is-neutral",
     };
 
-    private string FormatAmount(long sats) =>
-        (sats / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + (Currency == "DD" ? " DD" : " DGB");
+    // DD amounts arrive in USD cents (specs/033 T020); DGB in satoshis.
+    private string FormatAmount(long amount) => Currency == "DD"
+        ? PosEntry.FormatDdCents(amount)
+        : (amount / 100_000_000m).ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + " DGB";
 }
