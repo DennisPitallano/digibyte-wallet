@@ -164,22 +164,22 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 **Independent test**: create a DD payment, let `FakeDdExplorer` pay it, and see it go from seen to paid to confirmed. Stores sharing a key never collide.
 
-- [ ] T027 [P] [US2] Write tests in `tests/DigiByte.Pay.Api.Tests/DdAddressSequenceTests.cs`:
+- [X] T027 [P] [US2] Write tests in `tests/DigiByte.Pay.Api.Tests/DdAddressSequenceTests.cs`:
   - Sequential payments get indexes 0, 1, 2… and those addresses equal `DigiDollarAccountKey.Address(i)`.
   - Two stores with the same key get distinct addresses from one sequence.
   - Replacing a key and then putting the old key back continues its sequence.
   - 8 concurrent creations give 8 distinct indexes.
   - The donation address takes the next index once and is the same after that.
   - A creation makes no request to `FakeDdExplorer`, even when `Down` is set (FR-010).
-- [ ] T028 [US2] Implement `src/DigiByte.Pay.Api/Services/DdAddressAllocator.cs` (R4).
+- [X] T028 [US2] Implement `src/DigiByte.Pay.Api/Services/DdAddressAllocator.cs` (R4).
   - `AllocateAsync(store, kind, sessionId?)` atomically increments `DdKeySequences.NextIndex`: `UPDATE … RETURNING` on Npgsql, and a serialised transaction on SQLite.
   - It derives the address with `DigiDollarAccountKey`, inserts a `DdAddress` row and returns the address.
   - Register it in `src/DigiByte.Pay.Api/Program.cs`.
-- [ ] T029 [US2] Replace the node address calls with `DdAddressAllocator`:
+- [X] T029 [US2] Replace the node address calls with `DdAddressAllocator`:
   - `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` (DD session, kind `payment`)
   - `src/DigiByte.Pay.Api/Services/SessionOptionService.cs` (`TryCreateAtCreationAsync` and `GetOrCreateDdOptionAsync`, kind `option`; remove the 3-second cap and the `digidollar_node_unavailable` 503)
   - `src/DigiByte.Pay.Api/Endpoints/StoresEndpoints.cs` (donation-address `?currency=DD`, kind `donation`, kept on `DdDonationAddress`)
-- [ ] T030 [P] [US2] Write tests in `tests/DigiByte.Pay.Api.Tests/InvoiceMonitorDdExplorerTests.cs`, calling `InvoiceMonitor.RunOnceAsync` with `FakeDdExplorer`:
+- [X] T030 [P] [US2] Write tests in `tests/DigiByte.Pay.Api.Tests/InvoiceMonitorDdExplorerTests.cs`, calling `InvoiceMonitor.RunOnceAsync` with `FakeDdExplorer`:
   - **Status**: 0-conf goes to seen, the full amount to paid, 6 confirmations to confirmed, and a partial amount to underpaid.
   - **History, not balance**: a later spend from the address doesn't lower the received total.
   - **PaidTxid**: it's the first paying transaction.
@@ -191,7 +191,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - **Overpaid**: more DD than due goes to paid, with the full received amount recorded.
   - **Paid in two parts**: the first part on one tick makes the payment underpaid, and the second part on a later tick makes it paid. An underpaid DD payment past the 3-day late window is no longer watched. A DGB underpaid payment is still not watched, as today.
   - **Key removed (FR-004)**: a DD payment opened before the key is removed (S3) still goes to paid and confirmed, while `digiDollarEnabled` is false.
-- [ ] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
+- [X] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
   - `InspectDdSessionAsync`
   - `ReceivedOnAsync`
   - the extra-payment check
@@ -199,7 +199,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   Received is the sum of `DdOutputs` to the address. Confirmations come from the transaction that completed the amount due. Set `FirstPaidAt`.
 
   In `SessionsToWatch`, also include DD payments (`Currency == "DD"`) with status `Underpaid` whose `ExpiresAt` is within the 3-day late window, so a second part can bring them to paid (R5). DGB payments aren't affected.
-- [ ] T032 [US2] Update the existing DD tests to the allocator and explorer fakes:
+- [X] T032 [US2] Update the existing DD tests to the allocator and explorer fakes:
   - `tests/DigiByte.Pay.Api.Tests/DdOptionEndpointTests.cs`: replace the `DdNode.Addresses` and `address/new` asserts with derived-address asserts, and replace `A_down_node_is_503_and_makes_no_option` with the `dd_service_unavailable` case (C1).
   - `BuyerChoiceSessionTests.cs`, `InvoiceMonitorBuyerChoiceTests.cs`, `DonationOptionsTests.cs`, `DdSurfacesGateTests.cs`, `SessionsCsvDdTests.cs` and `PosShiftTotalsDdTests.cs`.
 - [ ] T033 [P] [US2] Replace `tests/DigiByte.Pay.E2E/scripts/fake-nodeapi.mjs` with `tests/DigiByte.Pay.E2E/scripts/fake-esplora.mjs`. It serves the T008 paths, plus `/coingecko` and `/fx`. Point `tests/DigiByte.Pay.E2E/servers.mjs` and `playwright.config.mjs` at it, passing `--DigiPay:DigiDollar:EsploraTestnetUrl`.
@@ -244,8 +244,8 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - DD payments stay pending without errors.
   - A DGB payment on the same store still goes to paid.
   - After recovery, a DD payment paid during the outage, including one past its expiry within 3 days, goes to paid on the next tick.
-- [ ] T044 [US4] Change `src/DigiByte.Pay.Api/Services/DdAvailability.cs` to use `DdChainProvider.For(network).GetHealthAsync`. DD is available only if `Available && DeploymentActive`. Keep the cache (30 s) and the 3-second timeout, and make it per network. Rename the reason `node_unavailable` to `dd_service_unavailable` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` and `src/DigiByte.Pay.Api/Services/SessionOptionService.cs`.
-- [ ] T045 [US4] In `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`, skip DD addresses for a network whose `DdAvailability` is false during that tick, with no status change and no error log per address, logging one warning per outage instead. Make sure DGB processing never awaits DD health.
+- [X] T044 [US4] Change `src/DigiByte.Pay.Api/Services/DdAvailability.cs` to use `DdChainProvider.For(network).GetHealthAsync`. DD is available only if `Available && DeploymentActive`. Keep the cache (30 s) and the 3-second timeout, and make it per network. Rename the reason `node_unavailable` to `dd_service_unavailable` in `src/DigiByte.Pay.Api/Endpoints/PaymentsEndpoints.cs` and `src/DigiByte.Pay.Api/Services/SessionOptionService.cs`.
+- [X] T045 [US4] In `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs`, skip DD addresses for a network whose `DdAvailability` is false during that tick, with no status change and no error log per address, logging one warning per outage instead. Make sure DGB processing never awaits DD health.
 
   Then delete `src/DigiByte.Pay.Api/Services/DigiDollarNodeClient.cs`. Its last callers are gone after T029, T031 and T044. Also remove its DI and the `DdNode` options from `src/DigiByte.Pay.Api/Program.cs`, and the `NODEAPI_BASE_URL` / `NODEAPI_WRITE_KEY` handling.
 - [ ] T046 [P] [US4] Update the unavailable copy in `src/DigiByte.Pay.Web/Components/Pages/Checkout.razor`, `Donate.razor` and `Pos.razor` (and their tests in `tests/DigiByte.Pay.Web.Tests`) to "DigiDollar is temporarily unavailable". Show the merchant-side note "DigiDollar confirmations may be delayed" on the Dashboard DD card when DD is unavailable (US4 scenario 3).

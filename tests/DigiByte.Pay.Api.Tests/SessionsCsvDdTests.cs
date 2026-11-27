@@ -9,7 +9,6 @@ public class SessionsCsvDdTests
     public async Task A_DD_session_is_exported_in_dollars_with_its_currency_and_no_DGB()
     {
         using var factory = new PayFactory();
-        factory.DdNode.Addresses.Enqueue("DDcsv000001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
         await TestDdKeys.GiveKey(client, key, storeId);
@@ -27,11 +26,11 @@ public class SessionsCsvDdTests
         // New columns are appended, so existing positions don't move.
         Assert.Equal(new[] { "currency", "amount", "received" }, header[^3..]);
         Assert.Equal("amountDgb", header[4]);
-        var dd = lines.Single(l => l.Contains("DDcsv000001")).Split(',');
+        var dd = lines.Single(l => l.Contains(TestDdKeys.Address(0))).Split(',');
         Assert.Equal("DD", dd[^3]);
         Assert.Equal(12.5m, Number(dd[^2]));
         Assert.Equal(0m, Number(dd[Array.IndexOf(header, "receivedDgb")]));
-        var dgb = lines.Skip(1).Single(l => !l.Contains("DDcsv000001")).Split(',');
+        var dgb = lines.Skip(1).Single(l => !l.Contains(TestDdKeys.Address(0))).Split(',');
         Assert.Equal("DGB", dgb[^3]);
         Assert.Equal(2.5m, Number(dgb[^2]));
     }

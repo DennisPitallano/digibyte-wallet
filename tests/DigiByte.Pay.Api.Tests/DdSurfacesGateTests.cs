@@ -78,7 +78,6 @@ public class DdSurfacesGateTests
     public async Task With_the_switch_off_explicit_API_DD_sessions_still_work()
     {
         using var factory = WithGate(false);
-        factory.DdNode.Addresses.Enqueue("DDexplicit0001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
         (await SetDd(client, key, storeId, true)).EnsureSuccessStatusCode();
@@ -88,14 +87,13 @@ public class DdSurfacesGateTests
 
         Assert.Equal("DD", session.GetProperty("currency").GetString());
         Assert.Equal(1250, session.GetProperty("amountCentsDd").GetInt64());
-        Assert.Equal("DDexplicit0001", session.GetProperty("address").GetString());
+        Assert.Equal(TestDdKeys.Address(0), session.GetProperty("address").GetString());
     }
 
     [Fact]
     public async Task A_DD_session_created_before_DD_is_turned_off_still_confirms()
     {
         using var factory = WithGate(false);
-        factory.DdNode.Addresses.Enqueue("DDbeforeoff001");
         var client = factory.CreateClient();
         var (key, storeId) = await factory.RegisterMerchant(client);
         (await SetDd(client, key, storeId, true)).EnsureSuccessStatusCode();
@@ -104,8 +102,7 @@ public class DdSurfacesGateTests
         var sessionId = created.GetProperty("id").GetString()!;
 
         (await SetDd(client, key, storeId, false)).EnsureSuccessStatusCode();
-        factory.DdNode.Balances["DDbeforeoff001"] = (1250, 0);
-        factory.DdNode.Txids["DDbeforeoff001"] = "ddtx0001";
+        factory.DdExplorer.Pay(created.GetProperty("address").GetString()!, 1250, confirmations: 6);
         var monitor = factory.Services.GetServices<IHostedService>().OfType<InvoiceMonitor>().Single();
         await monitor.RunOnceAsync();
 
@@ -116,16 +113,17 @@ public class DdSurfacesGateTests
     }
 
     [Fact]
-    public async Task Availability_is_cached_and_reads_a_down_node_as_unavailable()
+    public async Task Availability_is_cached_and_reads_a_down_explorer_as_unavailable()
     {
         using var factory = WithGate(false);
         _ = factory.CreateClient();
         var availability = factory.Services.GetRequiredService<DdAvailability>();
 
-        factory.DdNode.Healthy = false;
-        Assert.False(await availability.IsAvailableAsync());
+        factory.DdExplorer.Down = true;
+        Assert.False(await availability.IsAvailableAsync("mainnet"));
 
-        factory.DdNode.Healthy = true;
-        Assert.False(await availability.IsAvailableAsync()); // still the cached answer
+        factory.DdExplorer.Down = false;
+        Assert.False(await availability.IsAvailableAsync("mainnet")); // still the cached answer
+        Assert.True(await availability.IsAvailableAsync("testnet")); // cached per network
     }
 }

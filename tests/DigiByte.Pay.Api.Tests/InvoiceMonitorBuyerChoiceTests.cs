@@ -41,8 +41,7 @@ public class InvoiceMonitorBuyerChoiceTests
     {
         var (factory, id, _, dd, hooks) = await TwoOptions();
         using var _f = factory;
-        factory.DdNode.Balances[dd] = (2500, 0);
-        factory.DdNode.Txids[dd] = "ddtx01";
+        factory.DdExplorer.Pay(dd, 2500, confirmations: 6);
 
         await Tick(factory);
 
@@ -80,7 +79,7 @@ public class InvoiceMonitorBuyerChoiceTests
         var (factory, id, dgb, dd, hooks) = await TwoOptions();
         using var _f = factory;
         factory.Chain.Pay(dgb, 2500L * 100_000_000);
-        factory.DdNode.Balances[dd] = (2500, 0);
+        factory.DdExplorer.Pay(dd, 2500, confirmations: 6);
 
         await Tick(factory);
         await Tick(factory);
@@ -92,11 +91,11 @@ public class InvoiceMonitorBuyerChoiceTests
     }
 
     [Fact]
-    public async Task A_down_DD_node_never_stops_DGB_from_locking()
+    public async Task A_down_DD_explorer_never_stops_DGB_from_locking()
     {
         var (factory, id, dgb, _, _) = await TwoOptions();
         using var _f = factory;
-        factory.DdNode.Healthy = false;
+        factory.DdExplorer.Down = true;
         factory.Chain.Pay(dgb, 2500L * 100_000_000, confirmations: 6);
 
         await Tick(factory);
@@ -114,16 +113,15 @@ public class InvoiceMonitorBuyerChoiceTests
         factory.Chain.Pay(dgb, 2500L * 100_000_000, confirmations: 6);
         await Tick(factory);
 
-        factory.DdNode.Balances[dd] = (500, 0);
-        factory.DdNode.Txids[dd] = "ddextra1";
+        var extraTxid = factory.DdExplorer.Pay(dd, 500, confirmations: 6);
         await Tick(factory);
-        factory.DdNode.Balances[dd] = (800, 0);
+        factory.DdExplorer.Pay(dd, 300, confirmations: 6);
         await Tick(factory);
 
         var s = await Load(factory, id);
         Assert.Equal("DD", s.ExtraCurrency);
         Assert.Equal(800, s.ExtraAmount);
-        Assert.Equal("ddextra1", s.ExtraTxid);
+        Assert.Equal(extraTxid, s.ExtraTxid);
         Assert.NotNull(s.ExtraSeenAt);
         var extra = Assert.Single(Events(hooks, "session.extra_payment"));
         var payload = extra.GetProperty("session").GetProperty("extra");
@@ -147,7 +145,7 @@ public class InvoiceMonitorBuyerChoiceTests
             await db.SaveChangesAsync();
         });
 
-        factory.DdNode.Balances[dd] = (300, 0);
+        factory.DdExplorer.Pay(dd, 300, confirmations: 6);
         await Tick(factory);
 
         Assert.Equal(300, (await Load(factory, id)).ExtraAmount);

@@ -113,7 +113,7 @@ public static class PaymentsEndpoints
             CreateSessionRequest body,
             HttpRequest http,
             DigiPayDbContext db,
-            DigiDollarNodeClient ddNode,
+            DdAddressAllocator ddAddresses,
             SessionOptionService options) =>
         {
             var caller = await MerchantAuthenticator.GetCallerAsync(http, db);
@@ -217,28 +217,18 @@ public static class PaymentsEndpoints
             }
 
             // Resolve the receive address:
-            // - DD sessions: generate a fresh DD address from the node RPC
-            //   (no xpub-based derivation exists for DD; the node's DD wallet
-            //   owns the keys). Requires the store to opt in via
-            //   DigiDollarEnabled.
+            // - DD sessions: the next address of the store's own DigiDollar key (specs/035), so DD goes straight to the
+            //   merchant. Requires the store to opt in via DigiDollarEnabled, which needs the key. No outside call.
             // - Xpub mode: allocate next index, derive m/.../0/index (per-session privacy).
             // - Address mode: reuse the single stored address (no derivation).
+            var sessionId = $"ses_{RandomId(16)}";
             int index;
             string address;
             if (currency == "DD")
             {
-                if (!store.DigiDollarEnabled)
+                if (!store.DigiDollarEnabled || store.DdAccountKey is null)
                     return Results.BadRequest(new { error = "digidollar_not_enabled_for_store" });
-                try
-                {
-                    address = await ddNode.GenerateAddressAsync();
-                }
-                catch (Exception ex)
-                {
-                    return Results.Json(
-                        new { error = "digidollar_node_unavailable", detail = ex.Message },
-                        statusCode: 503);
-                }
+                address = await ddAddresses.AllocateAsync(store, DdAddress.KindPayment, sessionId);
                 index = 0;
             }
             else if (!string.IsNullOrEmpty(store.Xpub))
@@ -270,7 +260,7 @@ public static class PaymentsEndpoints
 
             var session = new PaySession
             {
-                Id = $"ses_{RandomId(16)}",
+                Id = sessionId,
                 MerchantId = merchant.Id,
                 StoreId = store.Id,
                 AddressIndex = index,
@@ -471,7 +461,7 @@ public static class PaymentsEndpoints
             var sessionOptions = await db.SessionOptions.AsNoTracking().Where(o => o.SessionId == session.Id).ToListAsync();
             var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == session.StoreId);
             string? ddReason = store is null || !optionService.DdOffered(store) ? "dd_disabled"
-                : !await availability.IsAvailableAsync() ? "unavailable"
+                : !await availability.IsAvailableAsync(store.Network) ? DdAvailability.UnavailableReason
                 : null;
             return Results.Ok(new
             {
@@ -504,7 +494,7 @@ public static class PaymentsEndpoints
                     minCents = SessionOptionService.MinCents,
                     maxCents = SessionOptionService.MaxCents,
                 }),
-                _ => Results.Json(new { error = "digidollar_node_unavailable" }, statusCode: 503),
+                _ => Results.Conflict(new { error = "dd_option_unavailable", reason = "dd_service_unavailable" }),
             };
         }).RequireRateLimiting("checkout-option").AllowAnonymous().AllowPosKey(); // the POS charge screen calls it with its tablet key
 

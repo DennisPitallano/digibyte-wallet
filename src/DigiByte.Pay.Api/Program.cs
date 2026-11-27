@@ -229,23 +229,6 @@ builder.Services.AddHttpClient("DigiPayChain", client =>
 builder.Services.Configure<DigiByte.Server.Shared.OutboundOptions>(builder.Configuration.GetSection(DigiByte.Server.Shared.OutboundOptions.SectionName));
 builder.Services.AddGuardedHttpClient("DigiPayWebhook", DigiByte.Server.Shared.OutboundUrlPolicy.Webhook(builder.Configuration.GetValue<bool>("Outbound:AllowLoopback")));
 
-// DigiDollar NodeApi client. Reads DdNode config from appsettings + env vars.
-// NODEAPI_BASE_URL / NODEAPI_WRITE_KEY override on Railway / containers.
-builder.Services.Configure<DdNodeOptions>(opts =>
-{
-    var section = builder.Configuration.GetSection("DdNode");
-    section.Bind(opts);
-    if (Environment.GetEnvironmentVariable("NODEAPI_BASE_URL") is { Length: > 0 } url)
-        opts.BaseUrl = url;
-    if (Environment.GetEnvironmentVariable("NODEAPI_WRITE_KEY") is { Length: > 0 } key)
-        opts.WriteKey = key;
-});
-builder.Services.AddHttpClient<DigiDollarNodeClient>(client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("DigiPay/0.1");
-    client.Timeout = TimeSpan.FromSeconds(15);
-});
-
 // DigiDollar on the public explorer (specs/035): DD arrivals, confirmations and health. No node.
 builder.Services.AddHttpClient(DdChainProvider.HttpClientName, client =>
 {
@@ -259,6 +242,7 @@ builder.Services.AddSingleton<DdSurfacesGate>();
 builder.Services.AddSingleton<DdAvailability>();
 builder.Services.AddSingleton<IChainServiceProvider, ChainServiceProvider>();
 builder.Services.AddScoped<SessionOptionService>();
+builder.Services.AddScoped<DdAddressAllocator>();
 builder.Services.AddSingleton<DgbPriceService>();
 builder.Services.AddSingleton<AuthChallengeStore>();
 builder.Services.AddScoped<WebhookDispatcher>();

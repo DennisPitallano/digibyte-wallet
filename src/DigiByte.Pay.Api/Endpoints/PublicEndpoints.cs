@@ -30,7 +30,7 @@ public static class PublicEndpoints
             var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
             if (store is null) return Results.NotFound(new { error = "not_found" });
             var ddAddress = store.DigiDollarEnabled && ddGate.Enabled ? store.DdDonationAddress : null;
-            var ddAvailable = ddAddress is not null && await availability.IsAvailableAsync();
+            var ddAvailable = ddAddress is not null && await availability.IsAvailableAsync(store.Network);
             return Results.Ok(new
             {
                 storeName = store.Name,
@@ -40,7 +40,7 @@ public static class PublicEndpoints
                 dgbAddress = string.IsNullOrEmpty(store.ReceiveAddress) ? null : store.ReceiveAddress,
                 ddAddress,
                 ddAvailable,
-                ddReason = ddAddress is null ? null : ddAvailable ? null : "unavailable",
+                ddReason = ddAddress is null ? null : ddAvailable ? null : DdAvailability.UnavailableReason,
             });
         }).RequireRateLimiting("checkout-option");
 

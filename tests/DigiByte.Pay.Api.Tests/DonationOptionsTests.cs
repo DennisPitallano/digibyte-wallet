@@ -16,19 +16,18 @@ public class DonationOptionsTests
     public async Task The_DD_donation_address_is_made_once_and_registered_as_a_donation()
     {
         using var factory = Factory();
-        factory.DdNode.Addresses.Enqueue("DDdonate00001");
         var (client, key, storeId) = await DdStore(factory);
 
         var first = await Json(await DdDonationAddress(client, key, storeId));
         var again = await Json(await DdDonationAddress(client, key, storeId));
 
-        Assert.Equal("DDdonate00001", first.GetProperty("address").GetString());
+        Assert.Equal(TestDdKeys.Address(0), first.GetProperty("address").GetString());
         Assert.Equal("dd", first.GetProperty("mode").GetString());
-        Assert.Equal("DDdonate00001", again.GetProperty("address").GetString());
-        Assert.Single(factory.DdNode.Requests, r => r.EndsWith("/address/new"));
+        Assert.Equal(TestDdKeys.Address(0), again.GetProperty("address").GetString());
+        Assert.Equal(1, await DdAddressCount(factory));
         await factory.WithDb(async db =>
         {
-            var row = await db.DdAddresses.SingleAsync(a => a.Address == "DDdonate00001");
+            var row = await db.DdAddresses.SingleAsync(a => a.Address == TestDdKeys.Address(0));
             Assert.Equal(DdAddress.KindDonation, row.Kind);
             Assert.Equal(storeId, row.StoreId);
             Assert.Null(row.SessionId);
@@ -50,14 +49,16 @@ public class DonationOptionsTests
     }
 
     [Fact]
-    public async Task A_down_node_is_503_and_stores_nothing()
+    public async Task The_DD_donation_address_is_made_even_while_the_explorer_is_down()
     {
+        // specs/035 FR-010: the address comes from the store's key, with no outside call.
         using var factory = Factory();
-        factory.DdNode.FailAddresses = true;
+        factory.DdExplorer.Down = true;
         var (client, key, storeId) = await DdStore(factory);
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await DdDonationAddress(client, key, storeId)).StatusCode);
-        Assert.Null((await factory.LoadStore(storeId))!.DdDonationAddress);
+        var response = await DdDonationAddress(client, key, storeId);
+
+        Assert.Equal(TestDdKeys.Address(0), (await Json(response)).GetProperty("address").GetString());
     }
 
     [Fact]
@@ -75,12 +76,11 @@ public class DonationOptionsTests
     public async Task Donation_options_offer_DD_only_while_the_store_can_take_it()
     {
         using var factory = Factory();
-        factory.DdNode.Addresses.Enqueue("DDdonate00002");
         var (client, key, storeId) = await DdStore(factory);
         await DdDonationAddress(client, key, storeId);
 
         var on = await Json(await client.GetAsync($"/v1/pay/public/stores/{storeId}/donation-options"));
-        Assert.Equal("DDdonate00002", on.GetProperty("ddAddress").GetString());
+        Assert.Equal(TestDdKeys.Address(0), on.GetProperty("ddAddress").GetString());
         Assert.True(on.GetProperty("ddAvailable").GetBoolean());
         Assert.Equal("mainnet", on.GetProperty("network").GetString());
         Assert.False(string.IsNullOrEmpty(on.GetProperty("dgbAddress").GetString()));
@@ -90,39 +90,21 @@ public class DonationOptionsTests
         var off = await Json(await client.GetAsync($"/v1/pay/public/stores/{storeId}/donation-options"));
         Assert.Equal(JsonValueKind.Null, off.GetProperty("ddAddress").ValueKind);
         Assert.False(off.GetProperty("ddAvailable").GetBoolean());
-        Assert.Equal("DDdonate00002", (await factory.LoadStore(storeId))!.DdDonationAddress); // kept for later donations
+        Assert.Equal(TestDdKeys.Address(0), (await factory.LoadStore(storeId))!.DdDonationAddress); // kept while the key stays
     }
 
     [Fact]
-    public async Task Donation_options_report_a_down_node_without_hiding_the_address()
+    public async Task Donation_options_report_a_down_explorer_without_hiding_the_address()
     {
         using var factory = Factory();
         var (client, key, storeId) = await DdStore(factory);
         await DdDonationAddress(client, key, storeId);
-        factory.DdNode.Healthy = false;
+        factory.DdExplorer.Down = true;
 
         var options = await Json(await client.GetAsync($"/v1/pay/public/stores/{storeId}/donation-options"));
 
         Assert.False(options.GetProperty("ddAvailable").GetBoolean());
-        Assert.Equal("unavailable", options.GetProperty("ddReason").GetString());
-    }
-
-    [Fact]
-    public async Task Only_the_owner_sees_DD_payout_details_on_the_session_read()
-    {
-        using var factory = Factory();
-        var (client, key, storeId) = await DdStore(factory);
-        var session = await Json(await Create(client, key, new { storeId, currency = "DD", amountCentsDd = 1250 }));
-        var id = session.GetProperty("id").GetString()!;
-
-        var anonymous = (await Json(await client.GetAsync($"/v1/pay/sessions/{id}"))).GetProperty("session");
-        var owner = (await Json(await client.SendAsync(PayFactory.Authed(HttpMethod.Get, $"/v1/pay/sessions/{id}", key)))).GetProperty("session");
-
-        Assert.False(anonymous.TryGetProperty("ddPayout", out _)); // public read: nothing about payouts
-        Assert.True(owner.TryGetProperty("ddPayout", out var payout));
-        Assert.Equal(JsonValueKind.Null, payout.ValueKind);
-        Assert.Equal(0, owner.GetProperty("ddExtraRefundCents").GetInt64());
-        Assert.False(owner.GetProperty("ddReversalAbsorbed").GetBoolean());
+        Assert.Equal("dd_service_unavailable", options.GetProperty("ddReason").GetString());
     }
 
     [Fact]
@@ -134,7 +116,7 @@ public class DonationOptionsTests
         var options = await Json(await client.GetAsync($"/v1/pay/public/stores/{storeId}/donation-options"));
 
         Assert.Equal(JsonValueKind.Null, options.GetProperty("ddAddress").ValueKind);
-        Assert.DoesNotContain(factory.DdNode.Requests, r => r.EndsWith("/address/new"));
+        Assert.Equal(0, await DdAddressCount(factory));
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/v1/pay/public/stores/sto_nope/donation-options")).StatusCode);
     }
 }

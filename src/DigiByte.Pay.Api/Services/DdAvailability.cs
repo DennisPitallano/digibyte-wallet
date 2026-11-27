@@ -3,37 +3,43 @@ using Microsoft.Extensions.Caching.Memory;
 namespace DigiByte.Pay.Api.Services;
 
 /// <summary>
-/// Whether the DigiDollar node can be used right now, from <see cref="DigiDollarNodeClient.IsHealthyAsync"/>, cached
-/// for <see cref="CacheFor"/> and cut off after <see cref="Timeout"/> so no caller waits on a slow node (Principle V,
-/// specs/033 research R10). Never throws: any failure reads as "not available".
+/// Whether DigiDollar can be confirmed right now on a network: the public explorer answers and DigiDollar is active there
+/// (specs/035 research R6). Cached for <see cref="CacheFor"/> per network and cut off after <see cref="Timeout"/>, so no
+/// caller waits on a slow explorer (Principle V). Never throws: any failure reads as "not available". DGB never asks it.
 /// </summary>
-public sealed class DdAvailability(IServiceProvider services, IMemoryCache cache, ILogger<DdAvailability> log)
+public sealed class DdAvailability(IDdChainProvider chains, IMemoryCache cache, ILogger<DdAvailability> log)
 {
     public static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(3);
-    private const string CacheKey = "digipay.dd.available";
 
-    public async Task<bool> IsAvailableAsync(CancellationToken ct = default)
+    /// <summary>The reason payments and tip pages give while DD can't be confirmed (contract C2).</summary>
+    public const string UnavailableReason = "dd_service_unavailable";
+
+    /// <summary>The cache entry for a network's answer.</summary>
+    public static string CacheKeyFor(string network) => "digipay.dd.available." + (network == "mainnet" ? "mainnet" : "testnet");
+
+    public async Task<bool> IsAvailableAsync(string network, CancellationToken ct = default)
     {
-        if (cache.TryGetValue(CacheKey, out bool known)) return known;
+        var net = network == "mainnet" ? "mainnet" : "testnet";
+        var cacheKey = CacheKeyFor(net);
+        if (cache.TryGetValue(cacheKey, out bool known)) return known;
 
         bool available;
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(Timeout);
-            // Typed HttpClient services are transient; resolve per probe so this singleton never pins a handler.
-            var node = services.GetRequiredService<DigiDollarNodeClient>();
-            available = await node.IsHealthyAsync(cts.Token);
+            var health = await chains.For(net).GetHealthAsync(cts.Token);
+            available = health.Available && health.DeploymentActive;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            log.LogInformation(ex, "DigiDollar availability probe failed");
+            log.LogInformation(ex, "DigiDollar availability probe failed ({Network})", net);
             available = false;
         }
 
-        cache.Set(CacheKey, available, CacheFor);
+        cache.Set(cacheKey, available, CacheFor);
         return available;
     }
 }

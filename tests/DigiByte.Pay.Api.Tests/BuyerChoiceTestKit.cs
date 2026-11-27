@@ -31,6 +31,14 @@ internal static class BuyerChoiceTestKit
         return (client, key, storeId);
     }
 
+    /// <summary>How many DigiDollar addresses DigiPay has given out (specs/035).</summary>
+    public static async Task<int> DdAddressCount(PayFactory factory)
+    {
+        var count = 0;
+        await factory.WithDb(async db => count = await db.DdAddresses.CountAsync());
+        return count;
+    }
+
     public static async Task<JsonElement> Json(HttpResponseMessage response)
     {
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

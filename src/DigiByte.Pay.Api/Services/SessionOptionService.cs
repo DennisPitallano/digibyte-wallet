@@ -11,19 +11,15 @@ namespace DigiByte.Pay.Api.Services;
 /// </summary>
 public sealed class SessionOptionService(
     DigiPayDbContext db,
-    DigiDollarNodeClient ddNode,
+    DdAddressAllocator ddAddresses,
     DgbPriceService prices,
     DdSurfacesGate gate,
-    DdAvailability availability,
-    ILogger<SessionOptionService> log)
+    DdAvailability availability)
 {
     public const long MinCents = 100;
     public const long MaxCents = 10_000_000;
 
-    /// <summary>A node call made while a payment is being created never waits longer than this (SC-002).</summary>
-    public static readonly TimeSpan CreationNodeTimeout = TimeSpan.FromSeconds(3);
-
-    public enum Failure { None, NotFound, NoChoice, Locked, NotPending, Expired, DdDisabled, NoRate, OutOfRange, NodeUnavailable }
+    public enum Failure { None, NotFound, NoChoice, Locked, NotPending, Expired, DdDisabled, NoRate, OutOfRange, ServiceUnavailable }
 
     public sealed record Result(PaySessionOption? Option, Failure Failure)
     {
@@ -70,27 +66,16 @@ public sealed class SessionOptionService(
 
     /// <summary>
     /// For a store whose default currency is DD: makes the DD option while the session is being created, so the buyer
-    /// starts on DD. Skips the node when it's reported down and gives it <see cref="CreationNodeTimeout"/> at most;
-    /// any failure returns null and the session starts on DGB (research R5).
+    /// starts on DD. The address comes from the store's own key (specs/035), with no outside call; while the explorer is
+    /// reported down (cached), DD isn't offered and the session starts on DGB (research R5, spec 035 FR-010).
     /// </summary>
     public async Task<PaySessionOption?> TryCreateAtCreationAsync(PaySession session, PayStore store, CancellationToken ct = default)
     {
         if (!DdOffered(store)) return null;
-        if (!await availability.IsAvailableAsync(ct)) return null;
+        if (!await availability.IsAvailableAsync(store.Network, ct)) return null;
         var (cents, rate, failure) = await QuoteAsync(session.FiatCurrency, session.FiatAmount, ct);
         if (failure != Failure.None) return null;
-        string address;
-        try
-        {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(CreationNodeTimeout);
-            address = await ddNode.GenerateAddressAsync(cts.Token);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            log.LogInformation(ex, "DD option not created for {SessionId}; it starts on DGB", session.Id);
-            return null;
-        }
+        var address = await ddAddresses.AllocateAsync(store, DdAddress.KindOption, session.Id, ct);
         var option = NewDdOption(session, address, cents, rate);
         db.SessionOptions.Add(option);
         return option;
@@ -118,13 +103,9 @@ public sealed class SessionOptionService(
         var (cents, rate, failure) = await QuoteAsync(session.FiatCurrency, session.FiatAmount, ct);
         if (failure != Failure.None) return Result.Of(failure);
 
-        string address;
-        try { address = await ddNode.GenerateAddressAsync(ct); }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            log.LogInformation(ex, "DD option for {SessionId}: node unavailable", session.Id);
-            return Result.Of(Failure.NodeUnavailable);
-        }
+        // The address needs no outside service, but a DD option the explorer can't confirm yet isn't offered (C1).
+        if (!await availability.IsAvailableAsync(store.Network, ct)) return Result.Of(Failure.ServiceUnavailable);
+        var address = await ddAddresses.AllocateAsync(store, DdAddress.KindOption, session.Id, ct);
 
         var option = NewDdOption(session, address, cents, rate);
         db.SessionOptions.Add(option);
@@ -135,7 +116,7 @@ public sealed class SessionOptionService(
         }
         catch (DbUpdateException)
         {
-            // A concurrent switch made the option first; the address made here is simply unused.
+            // A concurrent switch made the option first; the index taken here is simply skipped, never reused.
             db.ChangeTracker.Clear();
             var winner = await db.SessionOptions.AsNoTracking().FirstOrDefaultAsync(o => o.SessionId == session.Id && o.Currency == "DD", ct);
             return winner is not null ? new(winner, Failure.None) : throw new InvalidOperationException("DD option conflict without a winner");

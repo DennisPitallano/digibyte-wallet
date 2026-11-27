@@ -13,7 +13,6 @@ public class DdOptionEndpointTests
     public async Task A_USD_price_becomes_DD_at_one_to_one_once_per_session()
     {
         using var factory = Factory();
-        factory.DdNode.Addresses.Enqueue("DDopt000001");
         var (client, key, storeId) = await DdStore(factory);
         var session = await CreateChoice(client, key, storeId, fiat: 25m);
         var id = session.GetProperty("id").GetString()!;
@@ -22,16 +21,17 @@ public class DdOptionEndpointTests
         var first = await Json(await PickDd(client, id));
         var again = await Json(await PickDd(client, id));
 
-        Assert.Equal("DDopt000001", Address(first));
+        Assert.Equal(TestDdKeys.Address(0), Address(first));
         Assert.Equal(2500, first.GetProperty("amountCentsDd").GetInt64());
         Assert.Equal(1m, first.GetProperty("usdRate").GetDecimal());
         Assert.Contains("currency=USD", first.GetProperty("uri").GetString());
         Assert.Equal(Address(first), Address(again));
-        Assert.Single(factory.DdNode.Requests, r => r.EndsWith("/address/new"));
+        Assert.Equal(1, await DdAddressCount(factory));
         await factory.WithDb(async db =>
         {
-            var row = await db.DdAddresses.SingleAsync(a => a.Address == "DDopt000001");
-            Assert.Equal(DdAddress.KindPayment, row.Kind);
+            var row = await db.DdAddresses.SingleAsync(a => a.Address == TestDdKeys.Address(0));
+            Assert.Equal(DdAddress.KindOption, row.Kind);
+            Assert.Equal(0, row.Index);
             Assert.Equal(id, row.SessionId);
             Assert.Equal(storeId, row.StoreId);
         });
@@ -161,17 +161,17 @@ public class DdOptionEndpointTests
     }
 
     [Fact]
-    public async Task A_down_node_is_503_and_makes_no_option()
+    public async Task A_down_explorer_refuses_the_switch_and_makes_no_option()
     {
         using var factory = Factory();
         var (client, key, storeId) = await DdStore(factory);
         var id = (await CreateChoice(client, key, storeId)).GetProperty("id").GetString()!;
-        factory.DdNode.FailAddresses = true;
+        factory.DdExplorer.Down = true;
 
         var response = await PickDd(client, id);
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.Equal("digidollar_node_unavailable", (await Json(response)).GetProperty("error").GetString());
+        // specs/035 contract C1: the address needs no outside service, but DD the explorer can't confirm isn't offered.
+        AssertConflict(response, "dd_option_unavailable", "dd_service_unavailable");
         await factory.WithDb(async db => Assert.False(await db.SessionOptions.AnyAsync(o => o.SessionId == id && o.Currency == "DD")));
     }
 
