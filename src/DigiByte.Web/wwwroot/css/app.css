@@ -1381,6 +1381,8 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 .dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.32)); }
 /* The receipt stays light paper in dark mode too: it reads as a printed slip lying on the dark page. Anything inside
    it that has a dark: variant gets its light colour back. */
+/* A softer off-white on the dark page, so the slip doesn't glare at night; the ink stays dark. */
+.dark .receipt { background: #e8e4d9; }
 .dark .receipt .dark\:text-amber-400 { color: #d97706; }
 .dark .receipt .dark\:text-slate-500 { color: #94a3b8; }
 
