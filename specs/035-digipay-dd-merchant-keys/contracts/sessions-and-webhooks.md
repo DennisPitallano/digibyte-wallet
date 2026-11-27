@@ -25,6 +25,8 @@ They're unchanged: pending, seen, paid, confirmed, underpaid, expired, and the 3
 | `paidTxid` | The first transaction paying the address |
 | `confirmations` | Real confirmations of the transaction that completed the amount due. Confirmed at 6. |
 
+**DD only**: an underpaid payment that receives the rest within the 3-day late window moves to paid, and sends `session.paid` (research R5). An underpaid DGB payment stays underpaid, as today.
+
 ## C4. Webhooks
 
 - **Kept**:
