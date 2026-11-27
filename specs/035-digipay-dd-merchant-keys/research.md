@@ -87,6 +87,8 @@ A DGB account xpub (`m/84'/20'/0'`) has the same version bytes and depth, so it 
 - Confirmations were approximated (confirmed ≥ due → 6). Now they are real.
 - The request volume matches what the DGB monitor already sends to the same explorer: one address listing per open address per tick, plus a transaction fetch for each transaction found.
 
+**Deliberate difference from DGB**: the DGB monitor counts only the first transaction paying the address (`InvoiceMonitor.cs:162-170`). DD counts every transaction paying it, so a buyer who pays in two parts ends up paid, not underpaid. This is better for the buyer. Changing DGB the same way would be a separate change.
+
 **Alternatives considered**:
 
 - `GetUtxosAsync`: unspent-only, so it has the same spend problem.

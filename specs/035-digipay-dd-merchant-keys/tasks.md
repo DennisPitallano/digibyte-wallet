@@ -185,7 +185,7 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
   - **First paid**: `DdAddress.FirstPaidAt` is set.
   - **Buyer choice**: a DD arrival locks the payment to DD. DD arriving on a payment locked to DGB raises `session.extra_payment`.
   - **Key replaced (FR-005)**: a DD payment opened before the store's key is replaced (S2 with a new key) still goes to paid on its original address.
-  - **Reorganised out**: a paid payment whose transaction disappears from the explorer's history goes back to its earlier state, as DGB payments do.
+  - **Reorganised out**: as with DGB, when the paying transaction's confirmations drop, they're recalculated on the next tick while the payment is watched. When the transaction disappears from the explorer's history entirely, the status stays unchanged.
   - **Overpaid**: more DD than due goes to paid, with the full received amount recorded.
   - **Key removed (FR-004)**: a DD payment opened before the key is removed (S3) still goes to paid and confirmed, while `digiDollarEnabled` is false.
 - [ ] T031 [US2] Rewrite the DD paths in `src/DigiByte.Pay.Api/Services/InvoiceMonitor.cs` to use `DdChainProvider.For(network).GetHistoryAsync` (R5):
