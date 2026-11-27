@@ -213,18 +213,18 @@ description: "Tasks for spec 035: DigiDollar on the merchant's own keys, without
 
 **Independent test**: the key screen's key, pasted into DigiPay's preview, gives the same first address. The deep scan finds DD at receive index 300.
 
-- [ ] T035 [P] [US3] Write tests in `tests/DigiByte.Wallet.Tests/DigiDollarKeyExportTests.cs`:
+- [X] T035 [P] [US3] Write tests in `tests/DigiByte.Wallet.Tests/DigiDollarKeyExportTests.cs`:
   - For a seed wallet, `WalletService.GetDigiDollarAccountKeyAsync()` returns the key and first address, matching `DigiDollarAccountKey.Parse(key).Address(0)`, on mainnet and testnet.
   - It returns null for watch-only and multisig wallets.
-- [ ] T036 [US3] Implement `GetDigiDollarAccountKeyAsync()` in `src/DigiByte.Wallet/Services/WalletService.cs` using `DigiDollarKeyDerivation.GetAccountExtPubKey()` from the unlocked session's DD derivation (W2).
-- [ ] T037 [P] [US3] Write tests in `tests/DigiByte.Wallet.Tests/DigiDollarDeepScanTests.cs`:
+- [X] T036 [US3] Implement `GetDigiDollarAccountKeyAsync()` in `src/DigiByte.Wallet/Services/WalletService.cs` using `DigiDollarKeyDerivation.GetAccountExtPubKey()` from the unlocked session's DD derivation (W2).
+- [X] T037 [P] [US3] Write tests in `tests/DigiByte.Wallet.Tests/DigiDollarDeepScanTests.cs`:
   - With DD paid only at receive index 300, a normal scan (gap 20) misses it and `ScanAsync(receiveGapLimit: 500)` finds it.
   - After the deep scan, a normal scan keeps the found address.
-- [ ] T038 [US3] Add the `receiveGapLimit` parameter (default 20) to the scan in `src/DigiByte.Wallet/Services/DigiDollarService.cs`, used for the receive chain only. Persist the highest used receive index found so normal scans start from it (W3).
-- [ ] T039 [P] [US3] Create `src/DigiByte.Web/Pages/ExportDigiDollarKey.razor` at `/settings/digidollar-key`, mirroring `src/DigiByte.Web/Pages/ExportXpub.razor`. It shows the key with Copy, the first DD address, the W1 text and a link to the deeper scan. It shows the watch-only message when the key is null.
-- [ ] T040 [US3] Link "DigiDollar key for DigiPay" from `src/DigiByte.Web/Pages/Settings.razor`, next to the xpub item.
-- [ ] T041 [US3] Add the "Look further for DigiDollar" card to `src/DigiByte.Web/Pages/Recovery.razor`. It runs the deep scan with progress and the result text (W3), and leaves the DGB receive search unchanged.
-- [ ] T042 [P] [US3] The wallet web app (`DigiByte.Web`) has no bUnit test project, so its pages are covered by the service tests in T035 and T037 and checked by hand. Add the hand checks to [quickstart.md](quickstart.md) "Manual, on testnet":
+- [X] T038 [US3] Add the `receiveGapLimit` parameter (default 20) to the scan in `src/DigiByte.Wallet/Services/DigiDollarService.cs`, used for the receive chain only. Persist the highest used receive index found so normal scans start from it (W3).
+- [X] T039 [P] [US3] Create `src/DigiByte.Web/Pages/ExportDigiDollarKey.razor` at `/settings/digidollar-key`, mirroring `src/DigiByte.Web/Pages/ExportXpub.razor`. It shows the key with Copy, the first DD address, the W1 text and a link to the deeper scan. It shows the watch-only message when the key is null.
+- [X] T040 [US3] Link "DigiDollar key for DigiPay" from `src/DigiByte.Web/Pages/Settings.razor`, next to the xpub item.
+- [X] T041 [US3] Add the "Look further for DigiDollar" card to `src/DigiByte.Web/Pages/Recovery.razor`. It runs the deep scan with progress and the result text (W3), and leaves the DGB receive search unchanged.
+- [X] T042 [P] [US3] The wallet web app (`DigiByte.Web`) has no bUnit test project, so its pages are covered by the service tests in T035 and T037 and checked by hand. Add the hand checks to [quickstart.md](quickstart.md) "Manual, on testnet":
   - The seed wallet shows the key and first address, and Copy works.
   - A watch-only wallet shows the "only available in a wallet restored from its recovery phrase" message.
   - "Look further for DigiDollar" on `/recovery` shows its progress and result.

@@ -193,7 +193,7 @@ public partial class LocaleFilesTests
         "Pages/Help.razor", "Layout/MainLayout.razor", "Pages/Identity.razor",
         "Components/Shared/DigiIdAddressWarning.razor", "Components/Shared/DigiIdLoginDetailModal.razor",
         "Components/Shared/DigiIdRecoverFunds.razor", "Pages/DigiDollar.razor", "Pages/DigiDollarReceive.razor",
-        "Pages/DigiDollarSend.razor", "Components/DigiDollar/DdIcon.razor",
+        "Pages/DigiDollarSend.razor", "Pages/ExportDigiDollarKey.razor", "Components/DigiDollar/DdIcon.razor",
         "Components/DigiDollar/DigiDollarConfirmDialog.razor", "Components/DigiDollar/DigiDollarHealthBanner.razor",
         "Components/DigiDollar/DigiDollarHomeCard.razor", "Components/DigiDollar/DigiDollarPriceLine.razor",
         "Components/DigiDollar/DigiDollarRouteGuard.razor", "Components/DigiDollar/DigiDollarSendForm.razor",

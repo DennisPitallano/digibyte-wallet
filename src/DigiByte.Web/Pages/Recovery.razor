@@ -6,6 +6,8 @@
 @inject SearchOfferCoordinator SearchOffer
 @inject LocalizationService L
 @inject AppState AppState
+@inject IDigiDollarService DdService
+@inject DigiDollarViewModel Dd
 @implements IDisposable
 
 <PageTitle>@L.T("recovery.page_title")</PageTitle>
@@ -268,6 +270,52 @@
         </div>
     }
 
+    @* Current Wallet — DigiDollar past the normal gap: 500 receive addresses past the last paid one (specs/035 W3, FR-023) *@
+    @if (showDdSearch)
+    {
+        <div id="dd-search" data-testid="dd-search" class="card slide-up-delay-1 p-4">
+            <p class="text-sm font-semibold text-slate-900 dark:text-white mb-2">@L.T("recovery.dd_search.title")</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">@L.T("recovery.dd_search.intro")</p>
+
+            @if (ddSearchMessage is not null)
+            {
+                <div data-testid="dd-search-result" role="status" class="mb-2">
+                    @if (ddSearchIsProblem)
+                    {
+                        <InlineError Message="@ddSearchMessage" />
+                    }
+                    else
+                    {
+                        <div class="bg-slate-50 dark:bg-dgb-800/30 rounded-xl p-3 text-center">
+                            <p class="text-xs text-slate-600 dark:text-slate-300">@ddSearchMessage</p>
+                        </div>
+                    }
+                </div>
+            }
+
+            <button id="dd-search-start" data-testid="dd-search-start" class="btn-primary btn-sm w-full"
+                    @onclick="SearchDigiDollar" disabled="@isDdScanning">
+                @if (isDdScanning)
+                {
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                }
+                <span>@L.T("recovery.dd_search.start")</span>
+            </button>
+            @if (isDdScanning && ddSearchProgress is { } ddRunning)
+            {
+                <p data-testid="dd-search-progress" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">
+                    @L.T("dd.scanning.progress", Count(ddRunning.AddressesChecked), Count(ddRunning.ActiveFound))
+                </p>
+            }
+            @if (isDdScanning)
+            {
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 text-center">
+                    @L.T("recovery.receive_search.keep_open")
+                </p>
+            }
+        </div>
+    }
+
     @* External Sweep Section *@
     <div class="@(isHdWallet ? "slide-up-delay-2" : "slide-up-delay-1")">
         @if (isHdWallet)
@@ -498,6 +546,14 @@
     private CancellationTokenSource? receiveSearchCancel;
     private bool disposed;
 
+    // Current wallet DigiDollar deeper search state (specs/035 W3)
+    private bool showDdSearch;
+    private bool isDdScanning;
+    private DdScanProgress? ddSearchProgress;
+    private string? ddSearchMessage;
+    private bool ddSearchIsProblem;
+    private CancellationTokenSource? ddSearchCancel;
+
     /// <summary>Asks the running search to stop. It stops between batches, within a few seconds.</summary>
     private void CancelReceiveSearch() => receiveSearchCancel?.Cancel();
 
@@ -506,6 +562,7 @@
     {
         disposed = true;
         receiveSearchCancel?.Cancel();
+        ddSearchCancel?.Cancel();
     }
     // A failed, refused or untrusted search is shown as a problem, never in the calm style of "nothing found".
     private bool receiveSearchIsProblem;
@@ -528,11 +585,20 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || Search != "receive" || !hasDerivedAddresses) return;
+        if (!firstRender) return;
         try
         {
-            await JS.InvokeVoidAsync("domHelpers.scrollToElement", "receive-search");
-            await JS.InvokeVoidAsync("domHelpers.focusElement", "receive-search-upto");
+            if (Search == "receive" && hasDerivedAddresses)
+            {
+                await JS.InvokeVoidAsync("domHelpers.scrollToElement", "receive-search");
+                await JS.InvokeVoidAsync("domHelpers.focusElement", "receive-search-upto");
+            }
+            else if (Search == "digidollar" && showDdSearch)
+            {
+                // From the DigiDollar key screen's "Look further for DigiDollar" (specs/035 W1).
+                await JS.InvokeVoidAsync("domHelpers.scrollToElement", "dd-search");
+                await JS.InvokeVoidAsync("domHelpers.focusElement", "dd-search-start");
+            }
         }
         catch { /* The card is on the page either way. */ }
     }
@@ -545,6 +611,64 @@
             && WalletService.ActiveWallet?.WalletType is "hd" or "xpub";
         if (hasDerivedAddresses)
             receiveSearchInput = WalletService.DefaultReceiveSearchUpTo.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        // Only where DigiDollar is shown at all: an unlocked seed wallet on mainnet or testnet with DigiDollar switched on.
+        showDdSearch = WalletService.IsUnlocked && Dd.Visibility.Visible;
+    }
+
+    /// <summary>
+    /// The deeper DigiDollar search (specs/035 W3): one scan going 500 receive addresses past the last paid one. What it finds
+    /// is kept, so normal scans start from it. The DGB receive search above is separate and unchanged.
+    /// </summary>
+    private async Task SearchDigiDollar()
+    {
+        if (isDdScanning) return;
+        isDdScanning = true;
+        ddSearchProgress = null;
+        ddSearchMessage = null;
+        ddSearchIsProblem = false;
+        ddSearchCancel = new CancellationTokenSource();
+        // As with the receive search: the wallet must not lock for inactivity while the person watches it run.
+        AppState.ResetLockTimer();
+        StateHasChanged();
+
+        var progress = new Progress<DdScanProgress>(update =>
+        {
+            ddSearchProgress = update;
+            if (disposed) return;
+            AppState.ResetLockTimer();
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var result = await DdService.ScanAsync(progress, ddSearchCancel.Token, DigiDollarService.DeepScanGapLimit);
+            (ddSearchMessage, ddSearchIsProblem) = result switch
+            {
+                { Outcome: DdScanOutcome.Finished, NewAddressesFound: 1 } => (L.T("recovery.dd_search.found.one"), false),
+                { Outcome: DdScanOutcome.Finished, NewAddressesFound: > 1 } =>
+                    (L.T("recovery.dd_search.found.other", Count(result.NewAddressesFound)), false),
+                { Outcome: DdScanOutcome.Finished } => (L.T("recovery.dd_search.none"), false),
+                { Outcome: DdScanOutcome.NotSupported } => (L.T("dd.unsupported"), true),
+                _ => (L.T("recovery.dd_search.unavailable"), true),
+            };
+            // The DigiDollar balance and address list pick up what was found.
+            if (result is { Outcome: DdScanOutcome.Finished, NewAddressesFound: > 0 } && !disposed)
+                await Dd.RefreshAsync();
+        }
+        catch (OperationCanceledException) when (disposed)
+        {
+            // Left the page: nothing to show.
+        }
+        catch (Exception)
+        {
+            ddSearchMessage = L.T("recovery.dd_search.failed");
+            ddSearchIsProblem = true;
+        }
+        finally
+        {
+            isDdScanning = false;
+            if (!disposed) StateHasChanged();
+        }
     }
 
     private async Task SearchReceiveAddresses()
