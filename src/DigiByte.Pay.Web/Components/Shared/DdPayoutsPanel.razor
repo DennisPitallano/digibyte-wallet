@@ -1,0 +1,432 @@
+@* DigiDollar payouts for one store (specs/034 US1, US2, US3, US5): what DigiPay holds and why, the payout address
+   (set or changed with a Digi-ID re-sign-in, changes held 48 hours), when payouts go out, and the payout list. *@
+@implements IDisposable
+@inject IHttpClientFactory HttpFactory
+@inject ILogger<DdPayoutsPanel> Log
+@using System.Net.Http.Json
+@using System.Text.Json
+@using DigiByte.Pay.Web.Components.Pages.Merchant
+
+@{
+    const string Card = "card p-5 sm:p-6 flex flex-col gap-3";
+    const string Muted = "dp-muted";
+    const string Btn = "btn-primary btn-sm";
+    const string BtnGhost = "btn-secondary btn-sm";
+    const string Input = "input";
+}
+
+<div class="flex items-baseline justify-between gap-2 flex-wrap mb-1 slide-up">
+    <h1 class="page-title">DigiDollar payouts <span class="text-[0.625rem] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 align-middle ml-1">Beta</span></h1>
+    <button type="button" class="@BtnGhost" @onclick="LoadAsync" disabled="@loading"><Icon Name="refresh" Class="w-4 h-4" /><span>Refresh</span></button>
+</div>
+<p class="@Muted mb-6 slide-up-delay-1">
+    DigiPay holds the DigiDollar (DD) buyers pay <strong>@StoreName</strong> until it's paid out to your payout address.
+    DigiPay pays the network fee in DGB, so you receive the full DD amount.
+</p>
+
+@if (error is not null)
+{
+    <section class="@Card"><p class="m-0" role="alert">@error</p><button class="@BtnGhost self-start" @onclick="LoadAsync">Try again</button></section>
+}
+else if (balance is null)
+{
+    <section class="@Card" aria-busy="true"><Skeleton Shape="row" Count="3" /></section>
+}
+else
+{
+    <section class="@Card" id="dd-balance">
+        <h2 class="text-base font-bold m-0">Held for you</h2>
+        <div class="flex gap-6 flex-wrap">
+            <div><div class="text-2xl font-bold" id="dd-confirmed">@Dd(balance.ConfirmedCents) DD</div><div class="@Muted">ready to pay out</div></div>
+            <div><div class="text-2xl font-bold">@Dd(balance.ConfirmingCents) DD</div><div class="@Muted">still confirming</div></div>
+        </div>
+        @if (HoldText(balance) is { } hold) { <p class="m-0" id="dd-hold-reason">@hold</p> }
+        @if (balance.NextPayoutAt is { } next) { <p class="@Muted m-0">Next payout expected around @next.ToLocalTime().ToString("g").</p> }
+        @if (balance.BySource is { } src && (src.Overpayment + src.Late + src.ExtraRefund + src.Donation) > 0)
+        {
+            <ul class="@Muted m-0 pl-4" id="dd-by-source">
+                @if (src.Payment > 0) { <li>Payments: @Dd(src.Payment) DD</li> }
+                @if (src.Overpayment > 0) { <li>Overpayments: @Dd(src.Overpayment) DD</li> }
+                @if (src.Late > 0) { <li>Paid after the payment expired: @Dd(src.Late) DD</li> }
+                @if (src.ExtraRefund > 0) { <li>Extra payments to refund to buyers: @Dd(src.ExtraRefund) DD</li> }
+                @if (src.Donation > 0) { <li>Donations: @Dd(src.Donation) DD</li> }
+            </ul>
+        }
+        <p class="@Muted m-0 text-[0.6875rem]">
+            Last checked @(balance.LastCheckedAt?.ToLocalTime().ToString("g") ?? "never")@(balance.Stale ? " — this may be out of date while the DigiDollar service is unavailable." : ".")
+        </p>
+        <div class="flex gap-2 flex-wrap">
+            <button class="@Btn" @onclick='() => RequestPayoutAsync("manual")' disabled="@busy">Pay out now</button>
+            @if (balance.AutoPaused) { <button class="@BtnGhost" @onclick='() => RequestPayoutAsync("retry")' disabled="@busy">Retry now</button> }
+        </div>
+        @if (payoutMessage is not null) { <p class="@Muted m-0" role="status">@payoutMessage</p> }
+    </section>
+
+    <section class="@Card mt-4" id="dd-payout-address">
+        <h2 class="text-base font-bold m-0">Payout address</h2>
+        @if (balance.PayoutAddress is { } current)
+        {
+            <p class="m-0 font-mono text-sm break-all" id="dd-current-address">@current</p>
+        }
+        else
+        {
+            <p class="m-0" id="dd-no-address">Add the DigiDollar address from your own wallet. Until then, DigiPay keeps holding this store's DD.</p>
+        }
+
+        @if (balance.PendingChange is { } pending)
+        {
+            <div class="rounded-lg border border-amber-400 p-3 flex flex-col gap-2" id="dd-pending-change">
+                <p class="m-0">Changing to <span class="font-mono break-all">@pending.NewAddress</span></p>
+                <p class="@Muted m-0">Takes effect @pending.EffectiveAt.ToLocalTime().ToString("g"). Payouts are held until then. If you didn't ask for this, cancel it now.</p>
+                <button class="@BtnGhost self-start" @onclick="CancelChangeAsync" disabled="@busy">Cancel change</button>
+            </div>
+        }
+        else if (stage == Stage.Edit)
+        {
+            <label class="flex flex-col gap-1">
+                <span class="text-sm">@(balance.PayoutAddress is null ? "DigiDollar address" : "New DigiDollar address")</span>
+                <input class="@Input font-mono" @bind="addressInput" @bind:event="oninput" placeholder="@(Network == "mainnet" ? "DD…" : "TD…")" id="dd-address-input" />
+            </label>
+            @if (inputProblem is not null) { <p class="field-error m-0" role="alert" id="dd-address-error">@inputProblem</p> }
+            <button class="@Btn self-start" @onclick="Review" disabled="@busy">@(balance.PayoutAddress is null ? "Review address" : "Review new address")</button>
+            @if (balance.PayoutAddress is not null)
+            {
+                <p class="@Muted m-0 text-[0.6875rem]">A change needs a fresh Digi-ID sign-in and takes effect after 48 hours, so nobody can quietly redirect your payouts.</p>
+            }
+        }
+        else if (stage == Stage.Confirm)
+        {
+            var (start, middle, end) = PayoutAddressRules.Split(addressInput.Trim());
+            <div class="flex flex-col gap-2" id="dd-confirm">
+                <p class="m-0">Check every character against your wallet. Payouts go to:</p>
+                <p class="font-mono text-sm break-all m-0"><mark>@start</mark>@middle<mark>@end</mark></p>
+                <div class="flex gap-2">
+                    <button class="@Btn" @onclick="StartStepUpAsync" disabled="@busy">Confirm with Digi-ID</button>
+                    <button class="@BtnGhost" @onclick="() => stage = Stage.Edit">Edit</button>
+                </div>
+            </div>
+        }
+        else if (stage == Stage.StepUp)
+        {
+            <div class="flex flex-col gap-2 items-start" id="dd-stepup">
+                <p class="m-0">Scan with the DigiByte wallet you sign in with to confirm it's you.</p>
+                @if (qrDataUrl is not null) { <img src="@qrDataUrl" alt="Digi-ID QR code" width="200" height="200" /> }
+                @if (stepUpUri is not null) { <a class="@BtnGhost no-underline" href="@stepUpUri">Open in wallet</a> }
+                <button class="@BtnGhost" @onclick="StopStepUp">Cancel</button>
+            </div>
+        }
+        @if (addressError is not null) { <p class="field-error m-0" role="alert">@addressError</p> }
+    </section>
+
+    <section class="@Card mt-4" id="dd-schedule">
+        <h2 class="text-base font-bold m-0">When payouts go out</h2>
+        <label class="inline-flex items-center gap-2"><input type="radio" name="dd-schedule" checked="@(scheduleInput == "confirmed")" @onchange='() => scheduleInput = "confirmed"' /> As soon as each payment is confirmed (recommended)</label>
+        <label class="inline-flex items-center gap-2"><input type="radio" name="dd-schedule" checked="@(scheduleInput == "daily")" @onchange='() => scheduleInput = "daily"' /> Once a day at
+            <input type="time" class="@Input w-32" @bind="dailyTimeInput" disabled="@(scheduleInput != "daily")" /></label>
+        <label class="inline-flex items-center gap-2"><input type="radio" name="dd-schedule" checked="@(scheduleInput == "threshold")" @onchange='() => scheduleInput = "threshold"' /> When the balance reaches
+            <input type="number" min="1" max="100000" step="0.01" class="@Input w-32" @bind="thresholdInput" disabled="@(scheduleInput != "threshold")" /> DD</label>
+        <p class="@Muted m-0 text-[0.6875rem]">With a balance threshold, DD is still paid out once the oldest payment has been held for 7 days.</p>
+        <button class="@BtnGhost self-start" @onclick="SaveScheduleAsync" disabled="@busy">Save</button>
+        @if (scheduleMessage is not null) { <p class="@Muted m-0" role="status">@scheduleMessage</p> }
+    </section>
+
+    <section class="@Card mt-4 p-0 overflow-hidden" id="dd-payouts">
+        <div class="flex items-center justify-between gap-2 px-5 pt-5">
+            <h2 class="text-base font-bold m-0">Payouts</h2>
+            <select class="@Input w-40" @bind="statusFilter" @bind:after="LoadPayoutsAsync" aria-label="Filter by status">
+                <option value="">All</option>
+                <option value="sent">Sent</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="failed">Failed</option>
+                <option value="waiting">Waiting</option>
+                <option value="checking">Checking</option>
+            </select>
+        </div>
+        @if (payouts is null || payouts.Count == 0)
+        {
+            <p class="@Muted px-5 pb-5">No payouts yet.</p>
+        }
+        else
+        {
+            <ul class="m-0 p-0 list-none">
+                @foreach (var p in payouts)
+                {
+                    <li class="px-5 py-3 border-t border-slate-200 dark:border-dgb-800 flex flex-col gap-1" id="payout-@p.Id">
+                        <div class="flex justify-between gap-2 flex-wrap">
+                            <span class="font-semibold">@Dd(p.AmountCents) DD</span>
+                            <span class="text-[0.6875rem] uppercase tracking-widest font-bold @StatusClass(p.Status)">@p.Status</span>
+                        </div>
+                        <div class="@Muted text-[0.75rem]">@p.CreatedAt.ToLocalTime().ToString("g") · to <span class="font-mono">@Short(p.Destination)</span>@(p.Txid is null ? "" : $" · tx {Short(p.Txid)}")</div>
+                        @if (p.Status == "failed")
+                        {
+                            <p class="m-0 text-sm">@p.FailureReason This DD is still held for you. @(p.WillRetry == true ? "DigiPay will try again." : "Check the payout address, then retry.")</p>
+                        }
+                        else if (p.Status == "waiting" && p.WaitReason is { } why)
+                        {
+                            <p class="@Muted m-0 text-sm">@WaitText(why)</p>
+                        }
+                        @if (p.Items is { Count: > 0 } items && items.Any(i => i.Source == "extra_refund"))
+                        {
+                            <p class="m-0 text-sm">Includes @Dd(items.Where(i => i.Source == "extra_refund").Sum(i => i.AmountCents)) DD of extra payment, refund the buyer.</p>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Token { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string StoreId { get; set; } = string.Empty;
+    [Parameter] public string StoreName { get; set; } = string.Empty;
+    [Parameter] public string Network { get; set; } = "mainnet";
+
+    private enum Stage { Edit, Confirm, StepUp }
+
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private BalanceDto? balance;
+    private List<PayoutDto>? payouts;
+    private string? error, addressError, payoutMessage, scheduleMessage, inputProblem;
+    private string addressInput = "";
+    private string scheduleInput = "confirmed";
+    private TimeOnly dailyTimeInput = new(0, 0);
+    private decimal thresholdInput = 50m;
+    private string statusFilter = "";
+    private bool loading, busy;
+    private Stage stage = Stage.Edit;
+    private string? qrDataUrl, stepUpUri, stepUpNonce;
+    private System.Threading.Timer? poller;
+    private string? loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedFor == StoreId) return;
+        loadedFor = StoreId;
+        await LoadAsync();
+    }
+
+    private HttpRequestMessage Authed(HttpMethod method, string path, object? body = null)
+    {
+        var req = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {Token}");
+        return req;
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(StoreId)) return;
+        loading = true; error = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(Authed(HttpMethod.Get, $"/v1/pay/stores/{StoreId}/dd-balance"));
+            if (!response.IsSuccessStatusCode) { error = await ApiError.ReadAsync(response); return; }
+            balance = await response.Content.ReadFromJsonAsync<BalanceDto>(Json);
+            if (balance?.Schedule is { } s)
+            {
+                scheduleInput = s.Mode ?? "confirmed";
+                if (s.DailyTime is { } t && TimeOnly.TryParse(t, out var parsed)) dailyTimeInput = parsed;
+                if (s.ThresholdCents is { } c) thresholdInput = c / 100m;
+            }
+            await LoadPayoutsAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Loading DD payouts failed");
+            error = "DigiDollar payouts couldn't be loaded. Check your connection and try again.";
+        }
+        finally { loading = false; }
+    }
+
+    private async Task LoadPayoutsAsync()
+    {
+        var http = HttpFactory.CreateClient("PayApi");
+        var q = string.IsNullOrEmpty(statusFilter) ? "" : $"?status={statusFilter}";
+        var response = await http.SendAsync(Authed(HttpMethod.Get, $"/v1/pay/stores/{StoreId}/payouts{q}"));
+        if (response.IsSuccessStatusCode)
+            payouts = (await response.Content.ReadFromJsonAsync<PayoutPage>(Json))?.Items ?? [];
+    }
+
+    private void Review()
+    {
+        addressError = null;
+        inputProblem = PayoutAddressRules.Problem(addressInput, Network);
+        if (inputProblem is null) stage = Stage.Confirm;
+    }
+
+    private async Task StartStepUpAsync()
+    {
+        busy = true; addressError = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(Authed(HttpMethod.Get, "/v1/pay/payouts/step-up/challenge"));
+            if (!response.IsSuccessStatusCode) { addressError = await ApiError.ReadAsync(response); return; }
+            var challenge = await response.Content.ReadFromJsonAsync<ChallengeDto>(Json);
+            stepUpNonce = challenge!.Nonce;
+            stepUpUri = challenge.Uri;
+            qrDataUrl = Qr(challenge.Uri);
+            stage = Stage.StepUp;
+            poller?.Dispose();
+            poller = new System.Threading.Timer(async _ => await PollAsync(), null, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(1.5));
+        }
+        finally { busy = false; }
+    }
+
+    private async Task PollAsync()
+    {
+        if (stepUpNonce is null) return;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.GetAsync($"/v1/pay/auth/poll/{stepUpNonce}");
+            if (response.StatusCode == System.Net.HttpStatusCode.Accepted) return;
+            poller?.Dispose(); poller = null;
+            if (!response.IsSuccessStatusCode)
+            {
+                await InvokeAsync(() => { addressError = "The Digi-ID sign-in expired. Try again."; stage = Stage.Confirm; StateHasChanged(); });
+                return;
+            }
+            var poll = await response.Content.ReadFromJsonAsync<PollDto>(Json);
+            await InvokeAsync(async () => { await SubmitAddressAsync(poll?.StepUpGrant); StateHasChanged(); });
+        }
+        catch { /* transient: keep polling */ }
+    }
+
+    private async Task SubmitAddressAsync(string? grant)
+    {
+        stepUpNonce = null;
+        var http = HttpFactory.CreateClient("PayApi");
+        var response = await http.SendAsync(Authed(HttpMethod.Put, $"/v1/pay/stores/{StoreId}/payout-address", new { address = addressInput.Trim(), stepUpGrant = grant }));
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            addressError = body.Contains("payout_address_invalid")
+                ? PayoutAddressRules.Reason(JsonDocument.Parse(body).RootElement.TryGetProperty("reason", out var r) ? r.GetString() : null)
+                : body.Contains("stepup_required") ? "The Digi-ID sign-in wasn't accepted. Try again."
+                : "The payout address couldn't be saved.";
+            stage = Stage.Confirm;
+            return;
+        }
+        addressInput = "";
+        stage = Stage.Edit;
+        await LoadAsync();
+    }
+
+    private void StopStepUp()
+    {
+        poller?.Dispose(); poller = null; stepUpNonce = null; stage = Stage.Confirm;
+    }
+
+    private async Task CancelChangeAsync()
+    {
+        busy = true;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            await http.SendAsync(Authed(HttpMethod.Delete, $"/v1/pay/stores/{StoreId}/payout-address/pending"));
+            await LoadAsync();
+        }
+        finally { busy = false; }
+    }
+
+    private async Task RequestPayoutAsync(string reason)
+    {
+        busy = true; payoutMessage = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            var response = await http.SendAsync(Authed(HttpMethod.Post, $"/v1/pay/stores/{StoreId}/payouts", new { reason }));
+            if (response.IsSuccessStatusCode) payoutMessage = "Queued. It goes out within a minute.";
+            else
+            {
+                var code = (await response.Content.ReadAsStringAsync());
+                payoutMessage = code.Contains("below_minimum") ? "Nothing to pay out yet: payouts start at 1.00 DD of confirmed DD."
+                    : code.Contains("no_address") ? "Add a payout address first."
+                    : code.Contains("change_pending") ? "A payout address change is pending; payouts are held until it takes effect or you cancel it."
+                    : code.Contains("payout_in_progress") ? "A payout is already on its way."
+                    : code.Contains("operator_paused") ? "DigiPay has paused payouts for now."
+                    : "That didn't work. Try again.";
+            }
+        }
+        finally { busy = false; }
+    }
+
+    private async Task SaveScheduleAsync()
+    {
+        busy = true; scheduleMessage = null;
+        try
+        {
+            var http = HttpFactory.CreateClient("PayApi");
+            object body = scheduleInput switch
+            {
+                "daily" => new { schedule = "daily", dailyTime = dailyTimeInput.ToString("HH:mm"), timeZone = TimeZoneInfo.Local.Id },
+                "threshold" => new { schedule = "threshold", thresholdCents = (long)Math.Round(thresholdInput * 100) },
+                _ => new { schedule = "confirmed" },
+            };
+            var response = await http.SendAsync(Authed(HttpMethod.Patch, $"/v1/pay/stores/{StoreId}/payout-settings", body));
+            scheduleMessage = response.IsSuccessStatusCode ? "Saved." : "Those settings weren't accepted. Check the time or amount.";
+            if (response.IsSuccessStatusCode) await LoadAsync();
+        }
+        finally { busy = false; }
+    }
+
+    public static string Dd(long cents) => (cents / 100m).ToString("#,0.00");
+    private static string Short(string s) => s.Length <= 16 ? s : $"{s[..8]}…{s[^6..]}";
+    private static string StatusClass(string status) => status switch
+    {
+        "failed" => "text-red-600 dark:text-red-400",
+        "confirmed" or "sent" => "text-emerald-600 dark:text-emerald-400",
+        _ => "text-amber-600 dark:text-amber-400",
+    };
+
+    /// <summary>Why held DD isn't being paid out (FR-025), from the API's <c>holdReason</c>.</summary>
+    public static string? HoldText(BalanceDto b) => b.HoldReason switch
+    {
+        "no_address" => "Waiting for a payout address.",
+        "change_pending" => "Held while your payout address change is pending.",
+        "operator_paused" => "DigiPay has paused payouts for now. Nothing is lost; they resume automatically.",
+        "auto_paused" => "Automatic payouts are paused after failed attempts. Check the payout address, then retry.",
+        "node_unavailable" => "Waiting for the DigiDollar service, which is unavailable right now.",
+        "fee_reserve" => "Delayed by DigiPay: the DGB network-fee reserve is being topped up.",
+        "coverage" => "Delayed by DigiPay while funds confirm.",
+        "waiting_confirmations" => "Ready to pay out after 6 network confirmations (about 90 seconds).",
+        "below_minimum" => "Payouts start at 1.00 DD; this stays held until more arrives.",
+        "schedule" => "Goes out at your daily payout time.",
+        "threshold" => "Goes out when the balance reaches your threshold, or after 7 days.",
+        _ => null,
+    };
+
+    private static string WaitText(string reason) => reason switch
+    {
+        "node_unavailable" => "Waiting for the DigiDollar service.",
+        "fee_reserve" => "Delayed by DigiPay (network-fee reserve).",
+        "coverage" => "Delayed by DigiPay while funds confirm.",
+        "operator_paused" => "Payouts paused by DigiPay.",
+        "change_pending" => "Held while a payout address change is pending.",
+        _ => "Waiting.",
+    };
+
+    private static string Qr(string content)
+    {
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(content, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qr = new QRCoder.PngByteQRCode(data);
+        return $"data:image/png;base64,{Convert.ToBase64String(qr.GetGraphic(5))}";
+    }
+
+    public void Dispose() => poller?.Dispose();
+
+    public sealed record BalanceDto(long ConfirmedCents, long ConfirmingCents, SourcesDto? BySource, DateTime? LastCheckedAt, bool Stale,
+        string? PayoutAddress, PendingDto? PendingChange, ScheduleDto? Schedule, bool AutoPaused, string? HoldReason, DateTime? NextPayoutAt);
+    public sealed record SourcesDto(long Payment, long Overpayment, long Late, long ExtraRefund, long Donation);
+    public sealed record PendingDto(string Id, string NewAddress, DateTime EffectiveAt);
+    public sealed record ScheduleDto(string? Mode, string? DailyTime, string? TimeZone, long? ThresholdCents);
+    public sealed record PayoutPage(List<PayoutDto> Items, string? NextCursor);
+    public sealed record PayoutItemDto(string? SessionId, string Source, long AmountCents);
+    public sealed record PayoutDto(string Id, long AmountCents, string Destination, string Status, string? WaitReason, string? Txid,
+        string? FailureReason, bool? WillRetry, DateTime CreatedAt, List<PayoutItemDto>? Items);
+    private sealed record ChallengeDto(string Nonce, string Uri);
+    private sealed record PollDto(string? Status, string? StepUpGrant);
+}

@@ -56,6 +56,7 @@ else
             else
             {
             <div class="contents">
+            <PayoutAlertsBanner Token="@(token ?? string.Empty)" />
             @if (activeStore is null)
             {
                 <div class="flex items-baseline justify-between mb-1"><h1 class="@H1">Set up your store</h1></div>
@@ -906,6 +907,10 @@ else
                     }
                 </section>
             }
+            else if (activeTab == "digidollar")
+            {
+                <DdPayoutsPanel Token="@(token ?? string.Empty)" StoreId="@activeStore.Id" StoreName="@activeStore.Name" Network="@activeStore.Network" />
+            }
             else if (activeTab == "audit")
             {
                 <AuditPanel Token="@(token ?? string.Empty)" Clock="@clock" />
@@ -1160,7 +1165,19 @@ else
                         <span class="text-sm">Enable DigiDollar for this store</span>
                     </label>
                     @if (ddMessage != null) { <p class="@Muted m-0">@ddMessage</p> }
-                    @if (ddError != null) { <p class="field-error" role="alert">@ddError</p> }
+                    @if (ddError != null)
+                    {
+                        <p class="field-error" role="alert">@ddError</p>
+                        @if (ddNeedsPayoutAddress)
+                        {
+                            <button class="@BtnGhost self-start" @onclick='() => SwitchTab("digidollar")'>Add a payout address</button>
+                        }
+                    }
+                    @if (activeStore.DdPayoutAddressRequired && activeStore.DigiDollarEnabled)
+                    {
+                        <p class="m-0" id="dd-payout-prompt">DigiPay is holding this store's DD until you add a payout address.
+                            <a href="/merchant/digidollar">Add one</a></p>
+                    }
                 </section>
             }
             </div>
@@ -2360,6 +2377,9 @@ else
         finally { expiryBusy = false; StateHasChanged(); }
     }
 
+    /// <summary>Set when turning DD on was refused for want of a payout address (specs/034 FR-031).</summary>
+    private bool ddNeedsPayoutAddress;
+
     private async Task SaveDigiDollarEnabledAsync()
     {
         if (activeStore is null) return;
@@ -2368,10 +2388,12 @@ else
         ddBusy = true; ddError = null; ddMessage = null; StateHasChanged();
         try
         {
+            ddNeedsPayoutAddress = false;
             var (ok, error, _) = await PatchStoreAsync(new { digiDollarEnabled = ddEnabledInput });
             if (!ok)
             {
                 ddError = error;
+                ddNeedsPayoutAddress = error == ApiError.PayoutAddressRequired;
                 ddEnabledInput = activeStore.DigiDollarEnabled; // revert
                 return;
             }
@@ -2746,7 +2768,8 @@ else
         string? WebhookUrl, bool HasWebhookSecret,
         int? DefaultSessionExpiryMinutes, DateTime CreatedAt,
         bool DigiDollarEnabled = false, string? DefaultCurrency = null,
-        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null);
+        string? DefaultCurrencyEffective = null, bool BuyerChoiceEnabled = true, string? DdDonationAddress = null,
+        string? DdPayoutAddress = null, bool DdPayoutAddressRequired = false);
 
     /// <summary>What PATCH /stores/{id} returns that the page needs: the secret, the first time one is made.</summary>
     private record StoreUpdateDto(string Id, string? WebhookSecret = null);

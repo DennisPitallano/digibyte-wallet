@@ -446,7 +446,7 @@ public class DashboardTests : BunitContext
     // ----- DigiDollar setting text (specs/033 User Story 5) -----
 
     [Fact]
-    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_cannot_be_withdrawn_yet()
+    public void With_the_DD_surfaces_off_the_setting_lists_the_API_only_and_says_DD_is_held_until_paid_out()
     {
         var cut = RenderSection("settings");
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#dd-setting-text")));
@@ -454,7 +454,8 @@ public class DashboardTests : BunitContext
 
         Assert.Contains("only through the DigiPay API", text);
         Assert.Contains("DigiPay holds the DD", text);
-        Assert.Contains("can't be withdrawn yet", text);
+        Assert.Contains("paid out to your payout address", text); // specs/034 FR-040
+        Assert.DoesNotContain("can't be withdrawn", text);
         Assert.Contains("1 DD = $1", text);
         Assert.Contains("network fees in DGB", text);
         Assert.DoesNotContain("POS", text);

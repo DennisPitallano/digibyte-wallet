@@ -72,7 +72,7 @@ public class DashboardHelpersTests
     {
         var groups = DashboardSections.Grouped(DashboardSections.All);
         Assert.Equal(new[] { "Payments", "Insights", "Developers", "Account" }, groups.Select(g => g.Group));
-        Assert.Equal(new[] { "overview", "new", "sessions", "links", "pos", "donation" }, groups[0].Sections.Select(s => s.Key));
+        Assert.Equal(new[] { "overview", "new", "sessions", "links", "pos", "donation", "digidollar" }, groups[0].Sections.Select(s => s.Key));
         Assert.Equal(new[] { "apikeys", "webhook" }, groups[2].Sections.Select(s => s.Key));
         Assert.Equal(new[] { "stores", "settings", "audit" }, groups[3].Sections.Select(s => s.Key));
         // Renamed, same address.
@@ -84,7 +84,7 @@ public class DashboardHelpersTests
     public void The_more_sheet_groups_leave_out_the_bottom_menu()
     {
         var groups = DashboardSections.Grouped(DashboardSections.More);
-        Assert.Equal(new[] { "pos", "donation" }, groups[0].Sections.Select(s => s.Key));
+        Assert.Equal(new[] { "pos", "donation", "digidollar" }, groups[0].Sections.Select(s => s.Key));
         Assert.DoesNotContain(groups.SelectMany(g => g.Sections), s => s.BottomSlot > 0);
     }
 }
