@@ -119,8 +119,8 @@ public static class StoresEndpoints
                 }
                 else
                 {
-                    var kind = MerchantAddressService.Classify(trimmed, store!.Network, out var classifyError);
-                    if (kind is null) return Results.BadRequest(new { error = classifyError });
+                    var kind = MerchantAddressService.Classify(trimmed, store!.Network, out var classifyError, out var classifyReason);
+                    if (kind is null) return Results.BadRequest(new { error = classifyError, reason = classifyReason });
                     if (kind == MerchantAddressService.MerchantKeyKind.Xpub)
                     {
                         store.Xpub = trimmed;

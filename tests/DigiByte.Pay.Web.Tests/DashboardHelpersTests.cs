@@ -21,6 +21,23 @@ public class DashboardHelpersTests
     public void Api_errors_map_to_plain_sentences(int status, string? error, string expected) =>
         Assert.Equal(expected, ApiError.Plain(status, error));
 
+    // A store's DGB xpub refused by the strict check: the API's `reason` picks the sentence.
+    [Theory]
+    [InlineData("private_key", "That's a private key. Never share it. Paste the account xpub (public key) from your wallet.")]
+    [InlineData("wrong_network", "That xpub is for the other network. Use one from a wallet on this store's network.")]
+    [InlineData("malformed", "That isn't a DigiByte address or BIP84 xpub this store can use. Check it is for the store's network.")]
+    [InlineData(null, "That isn't a DigiByte address or BIP84 xpub this store can use. Check it is for the store's network.")]
+    public void Store_xpub_refusals_map_to_plain_sentences(string? reason, string expected)
+    {
+        var error = reason switch
+        {
+            "private_key" => "That is an extended private key (xprv/tprv). DigiPay only takes an account-level xpub; never share a private key.",
+            "wrong_network" => "The xpub is for a different network than this store.",
+            _ => "Expected a DigiByte address or a BIP84 account-level xpub.",
+        };
+        Assert.Equal(expected, ApiError.Plain(400, error, reason));
+    }
+
     [Fact]
     public async Task Raw_bodies_are_never_returned()
     {
