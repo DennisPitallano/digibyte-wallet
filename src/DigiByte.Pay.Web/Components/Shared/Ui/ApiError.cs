@@ -70,7 +70,14 @@ public static class ApiError
             if (Has("original session")) return "That payment no longer exists, so its event can't be replayed.";
             if (Has("delivery not found")) return "That delivery no longer exists. Refresh the log.";
             if (Has("store not found")) return "That store no longer exists, or isn't one of yours.";
-            if (Has("xpub") || Has("DigiByte address")) return "That isn't a DigiByte address or BIP84 xpub this store can use. Check it is for the store's network.";
+            if (Has("xpub") || Has("DigiByte address"))
+                return reason switch
+                {
+                    // The store's DGB account key failed the strict check (private key, or the other network).
+                    "private_key" => "That's a private key. Never share it. Paste the account xpub (public key) from your wallet.",
+                    "wrong_network" => "That xpub is for the other network. Use one from a wallet on this store's network.",
+                    _ => "That isn't a DigiByte address or BIP84 xpub this store can use. Check it is for the store's network.",
+                };
             if (Has("network must be")) return "Choose mainnet, testnet or regtest.";
             if (Has("label must be")) return "Keep the label to 80 characters or fewer.";
             if (Has("name is required") || Has("name must be")) return "Enter a name of up to 120 characters.";

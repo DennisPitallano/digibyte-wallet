@@ -1,5 +1,6 @@
 using DigiByte.Crypto.Networks;
 using NBitcoin;
+using NBitcoin.DataEncoders;
 
 namespace DigiByte.Crypto.KeyGeneration;
 
@@ -326,6 +327,71 @@ public class HdKeyDerivation
             catch { }
         }
         return null;
+    }
+
+    /// <summary>Why <see cref="ParseXpubStrict"/> refused a key. The pasted text is never part of the reason.</summary>
+    public static class XpubRefusal
+    {
+        public const string Malformed = "malformed";
+        public const string PrivateKey = "private_key";
+        public const string WrongNetwork = "wrong_network";
+    }
+
+    /// <summary>
+    /// Strict counterpart of <see cref="ParseXpub"/> for DigiPay stores: the key must be an extended public key whose version
+    /// bytes belong to <paramref name="network"/> (regtest shares testnet's <c>tpub</c> bytes). Unlike <see cref="ParseXpub"/>
+    /// it never falls back to another network, and it refuses private keys (<c>xprv</c>/<c>tprv</c>). On refusal it returns
+    /// null and sets <paramref name="refusal"/> to an <see cref="XpubRefusal"/> constant.
+    /// </summary>
+    public static ExtPubKey? ParseXpubStrict(string? xpub, Network network, out string? refusal)
+    {
+        const int extendedKeyLength = 78;
+        var trimmed = (xpub ?? "").Trim();
+        byte[] data;
+        try
+        {
+            data = trimmed.Length == 0 ? [] : Encoders.Base58Check.DecodeData(trimmed);
+        }
+        catch (FormatException)
+        {
+            refusal = XpubRefusal.Malformed;
+            return null;
+        }
+        if (data.Length != extendedKeyLength)
+        {
+            refusal = XpubRefusal.Malformed;
+            return null;
+        }
+
+        var version = data[..4];
+        Network[] digiByteNetworks = [DigiByteNetwork.Mainnet, DigiByteNetwork.Testnet, DigiByteNetwork.Regtest];
+        if (digiByteNetworks.Any(n => Matches(version, n, Base58Type.EXT_SECRET_KEY)))
+        {
+            refusal = XpubRefusal.PrivateKey;
+            return null;
+        }
+        if (!Matches(version, network, Base58Type.EXT_PUBLIC_KEY))
+        {
+            refusal = digiByteNetworks.Any(n => Matches(version, n, Base58Type.EXT_PUBLIC_KEY))
+                ? XpubRefusal.WrongNetwork
+                : XpubRefusal.Malformed;
+            return null;
+        }
+
+        try
+        {
+            var key = new ExtPubKey(data.AsSpan(4).ToArray());
+            refusal = null;
+            return key;
+        }
+        catch (Exception e) when (e is FormatException or ArgumentException)
+        {
+            refusal = XpubRefusal.Malformed;
+            return null;
+        }
+
+        static bool Matches(byte[] version, Network net, Base58Type type) =>
+            version.SequenceEqual(net.GetVersionBytes(type, true));
     }
 
     /// <summary>

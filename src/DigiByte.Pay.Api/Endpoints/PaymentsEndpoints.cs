@@ -47,9 +47,9 @@ public static class PaymentsEndpoints
                 return Results.BadRequest(new { error = "addressOrXpub is required (DigiByte address or BIP84 xpub)" });
 
             var network = string.IsNullOrWhiteSpace(body.Network) ? "mainnet" : body.Network.ToLowerInvariant();
-            var kind = MerchantAddressService.Classify(key, network, out var classifyError);
+            var kind = MerchantAddressService.Classify(key, network, out var classifyError, out var classifyReason);
             if (kind is null)
-                return Results.BadRequest(new { error = classifyError });
+                return Results.BadRequest(new { error = classifyError, reason = classifyReason });
 
             var id = $"mer_{RandomId(16)}";
             var (keyPrefix, keySecret, keyHash) = GenerateApiKey();
