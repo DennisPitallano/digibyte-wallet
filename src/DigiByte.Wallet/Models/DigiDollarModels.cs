@@ -42,7 +42,12 @@ public sealed record DigiDollarAccount(
     /// <summary>False until the first restore scan finishes (FR-007, research R12); a retry runs on next open.</summary>
     bool ScanComplete,
     DateTimeOffset? LastScanAt,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    /// <summary>
+    /// The highest receive index a scan found in use, or -1 for none yet (specs/035 W3). Later scans search on from it, so DD
+    /// that the deeper search found far along the receive chain is never left behind. Missing in state saved before spec 035.
+    /// </summary>
+    int HighestUsedReceiveIndex = -1)
 {
     public static DigiDollarAccount Create(string walletId, DdNetwork network, DateTimeOffset now) =>
         new(walletId, network, 0, 0, false, null, now);

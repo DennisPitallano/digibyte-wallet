@@ -26,6 +26,23 @@ public enum DdViewState
 /// <summary>Restore-scan progress (research R12): how many derived addresses were checked and how many had activity.</summary>
 public readonly record struct DdScanProgress(int AddressesChecked, int ActiveFound);
 
+/// <summary>How a scan asked for by the user ended (specs/035 W3).</summary>
+public enum DdScanOutcome
+{
+    /// <summary>The scan went to the end of its gap; anything it found is saved.</summary>
+    Finished,
+
+    /// <summary>The active wallet has no DigiDollar (not seed-based, locked, or an unsupported network).</summary>
+    NotSupported,
+
+    /// <summary>The DigiDollar backend could not be reached; nothing was changed.</summary>
+    Unavailable,
+}
+
+/// <param name="Outcome">How the scan ended.</param>
+/// <param name="NewAddressesFound">Addresses found in use that the wallet did not have before this scan.</param>
+public readonly record struct DdScanResult(DdScanOutcome Outcome, int NewAddressesFound);
+
 public sealed record DdDashboard(
     DdViewState State,
     NetworkHealth Health,
@@ -116,6 +133,15 @@ public interface IDigiDollarService
     /// history, and network health. Unreachable backend and inactive network are states, not exceptions.
     /// </summary>
     Task<DdDashboard> RefreshAsync(CancellationToken ct = default, IProgress<DdScanProgress>? progress = null);
+
+    /// <summary>
+    /// Scan the wallet's DigiDollar addresses again, going <paramref name="receiveGapLimit"/> unused receive addresses past the
+    /// last used one (the change chain keeps the normal gap). The deeper search on the recovery page passes 500
+    /// (specs/035 W3, FR-023). Addresses found in use are saved, so later scans start from them.
+    /// </summary>
+    Task<DdScanResult> ScanAsync(
+        IProgress<DdScanProgress>? progress = null, CancellationToken ct = default, int receiveGapLimit = DigiDollarService.GapLimit) =>
+        Task.FromException<DdScanResult>(new NotSupportedException("Scanning DigiDollar addresses is not supported."));
 
     /// <summary>Derive and remember the next receive address. Purely local: works while the backend is down (FR-005).</summary>
     Task<DigiDollarAddress> NewReceiveAddressAsync(CancellationToken ct = default);
