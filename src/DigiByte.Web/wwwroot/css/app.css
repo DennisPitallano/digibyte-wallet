@@ -1374,28 +1374,16 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 /* ── A payment request as a receipt (spec 036) ──────────────────────────────────────────────────────────────────────
    Paper with zig-zag top and bottom edges (a CSS mask, so it works on any page colour), a status stamp, itemised lines,
    a dashed tear line and the QR code on the stub below it. The shadow sits on the wrapper: a mask would clip it. */
-.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 8px 18px rgb(15 23 42 / 0.10)); }
-.dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.30)); }
+.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 8px 16px rgb(15 23 42 / 0.16)) drop-shadow(0 1px 2px rgb(15 23 42 / 0.12)); }
+.dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.32)); }
 
-/* Light: a plain rounded card. A cut edge has too little contrast against the near-white page and reads as stray
-   spikes, so the paper look comes from the type, the dashed rules and the stub instead. */
+/* Scalloped top and bottom edges in both themes: half-circle bites cut with a mask, so it works on any page colour.
+   No border (the mask would cut it); the paper stands off the page by its shadow. */
 .receipt {
-    --zz: 0px;
+    --zz: 9px;
     position: relative;
     background: #fffdf7;
     color: #1e293b;
-    border: 1px solid #e7e2d6;
-    border-radius: 1rem;
-    padding: 1.25rem;
-}
-
-/* Dark: scalloped top and bottom edges, half-circle bites cut with a mask, so it works on any page colour. */
-.dark .receipt {
-    --zz: 6px;
-    background: #0b1f3f;
-    color: #e2e8f0;
-    border: 0;
-    border-radius: 0;
     padding: calc(var(--zz) + 1.25rem) 1.25rem calc(var(--zz) + 1.25rem);
     -webkit-mask:
         radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
@@ -1404,6 +1392,7 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
         radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
         radial-gradient(var(--zz) at 50% 100%, #0000 98%, #000) bottom / calc(2 * var(--zz)) 51% repeat-x;
 }
+.dark .receipt { background: #0b1f3f; color: #e2e8f0; }
 
 .receipt-head { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
 .receipt-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.7rem; color: #64748b; }
