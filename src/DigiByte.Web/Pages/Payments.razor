@@ -18,57 +18,17 @@
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
         <h2 class="page-title">@L.T("request.title")</h2>
-        <button class="icon-btn icon-btn-primary"
-                aria-label="@L.T("payments.new")" @onclick="ShowCreateForm">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-        </button>
+        @if (!OnKeypad)
+        {
+            <button class="btn-secondary btn-sm" data-testid="request-back-to-keypad" @onclick="ShowKeypad">@L.T("request.keypad.back_to_keypad")</button>
+        }
     </div>
 
-    @* Create Payment Request *@
-    @if (showCreate)
+    @* The Request tab opens on the keypad (spec 036, US4, FR-022). *@
+    @if (OnKeypad)
     {
-        <div class="card scale-in p-4 flex flex-col gap-3">
-            <h3 class="block-title block-title-sm">@L.T("payments.new")</h3>
-            <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">@L.T("payments.amount_label")</label>
-                <div class="flex items-center bg-slate-50 dark:bg-dgb-950 border border-slate-200 dark:border-dgb-800 rounded-xl">
-                    <input type="number" inputmode="decimal" @bind="createAmount" @bind:event="oninput" step="@(inFiat ? "0.01" : "0.00000001")" min="0" placeholder="0.00"
-                           class="flex-1 px-3 py-2.5 bg-transparent text-sm text-slate-900 dark:text-white outline-none" data-testid="request-amount" />
-                    @* DGB or the person's own currency (FR-016). With no price, only DGB (FR-021). *@
-                    <div class="flex items-center gap-1 pr-2" role="group">
-                        <button type="button" class="px-2 py-1 rounded-lg text-xs font-bold @(inFiat ? "text-slate-400" : "bg-dgb-500 text-white")"
-                                aria-pressed="@(inFiat ? "false" : "true")" data-testid="request-currency-dgb" @onclick="() => inFiat = false">DGB</button>
-                        <button type="button" class="px-2 py-1 rounded-lg text-xs font-bold @(inFiat ? "bg-dgb-500 text-white" : "text-slate-400") disabled:opacity-40"
-                                aria-pressed="@(inFiat ? "true" : "false")" disabled="@(quote is null)" data-testid="request-currency-fiat"
-                                @onclick="() => inFiat = true">@AppState.FiatCurrency</button>
-                    </div>
-                </div>
-                @if (quote is null)
-                {
-                    <p class="text-xs text-slate-500 dark:text-slate-400" data-testid="request-price-unavailable">@L.T("request.price_unavailable")</p>
-                }
-                else if (inFiat && createAmount > 0 && RequestAmounts.ToDgb(createAmount.Value, quote.Price, quote.Currency) is { } equivalent)
-                {
-                    <p class="text-xs text-slate-500 dark:text-slate-400 tabular-nums" data-testid="request-dgb-equivalent">@L.T("request.fiat_amount", equivalent.ToString("#,0.########", System.Globalization.CultureInfo.CurrentCulture) + " DGB")</p>
-                }
-            </div>
-            <input type="text" @bind="createLabel" placeholder="@L.T("payments.label_placeholder")"
-                   class="input" />
-            <input type="text" @bind="createMessage" placeholder="@L.T("payments.message_placeholder")"
-                   class="input" />
-            @if (limitMessage is not null)
-            {
-                <p class="text-xs text-amber-700 dark:text-amber-300" role="alert" data-testid="request-limit">@limitMessage</p>
-            }
-            <div class="flex gap-2">
-                <button class="btn-secondary btn-sm flex-1"
-                        @onclick="() => showCreate = false">@L.T("common.cancel")</button>
-                <button class="btn-primary btn-sm flex-1"
-                        @onclick="CreateRequest">@L.T("payments.create")</button>
-            </div>
-        </div>
+        <RequestKeypad @ref="keypad" Quote="quote" FiatCurrency="@AppState.FiatCurrency" @bind-InFiat="inFiat"
+                       Busy="creating" Error="@limitMessage" OnRequest="CreateFromKeypad" OnShowList="ShowList" />
     }
 
     @* Active request detail *@
@@ -190,7 +150,10 @@
     <RequestPaidOverlay Request="paidOverlay" OnDone="ClosePaidOverlay" />
 
     @* Request History *@
-    @if (requests.Count == 0 && activeRequest == null)
+    @if (!showList || activeRequest != null)
+    {
+    }
+    else if (requests.Count == 0)
     {
         <div class="scale-in-delay-1 bg-white dark:bg-dgb-900/50 rounded-2xl border border-slate-200 dark:border-dgb-800 p-8 text-center card-hover">
             <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-dgb-800 flex items-center justify-center">
@@ -202,9 +165,9 @@
             <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@L.T("payments.empty_hint")</p>
         </div>
     }
-    else if (activeRequest == null)
+    else
     {
-        <div class="flex flex-col gap-1.5">
+        <div class="flex flex-col gap-1.5" data-testid="request-list">
             @foreach (var req in requests)
             {
                 var r = req;
@@ -258,11 +221,13 @@
 
     private IReadOnlyList<PaymentRequest> requests = [];
     private string WalletId => WalletService.ActiveWallet?.Id ?? "";
-    private bool showCreate;
-    private decimal? createAmount;
-    private string createLabel = "";
-    private string createMessage = "";
+    private bool showList;
+    private bool creating;
+    private RequestKeypad? keypad;
     private PaymentRequest? activeRequest;
+
+    // The keypad is the first screen; the list and a request's detail replace it until "New request".
+    private bool OnKeypad => activeRequest is null && !showList;
     private string? activeQrUrl;
     private bool copied;
 
@@ -285,33 +250,44 @@
             ShowRequest(named);
             return;
         }
-        // With nothing to list, the menu's Request tab opens straight onto the form.
-        if (requests.Count == 0) ShowCreateForm();
     }
 
-    private void ShowCreateForm()
+    private void ShowKeypad()
     {
-        createAmount = null; createLabel = ""; createMessage = "";
-        showCreate = true;
+        activeRequest = null;
+        showList = false;
+        limitMessage = null;
+        Watcher.Focus(null);
+    }
+
+    private void ShowList()
+    {
+        activeRequest = null;
+        showList = true;
+        Watcher.Focus(null);
     }
 
     private string? limitMessage;
 
-    private async Task CreateRequest()
+    private async Task CreateFromKeypad((decimal? Amount, bool InFiat, string? Label, string? Message) input)
     {
+        if (creating) return;
+        creating = true;
         limitMessage = null;
         PaymentRequest req;
         try
         {
-            if (inFiat)
+            if (input.InFiat && input.Amount is { } fiat)
             {
+                // A request in the person's currency locks a fresh price (FR-017).
                 quote = await Prices.GetAsync(fresh: true);
-                if (quote is null || createAmount is not > 0) { inFiat = quote is not null && inFiat; return; }
-                req = await PaymentService.CreateAsync(WalletId, new NewRequest(null, createLabel, createMessage, FiatAmount: createAmount, Quote: quote));
+                if (quote is null) { inFiat = false; return; }
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(null, input.Label, input.Message, FiatAmount: fiat, Quote: quote));
             }
             else
             {
-                req = await PaymentService.CreateAsync(WalletId, new NewRequest(createAmount, createLabel, createMessage));
+                // No amount means any amount, in DGB.
+                req = await PaymentService.CreateAsync(WalletId, new NewRequest(input.InFiat ? null : input.Amount, input.Label, input.Message));
             }
             _ = RememberCurrencyAsync();
         }
@@ -326,7 +302,9 @@
             limitMessage = ex.Message;
             return;
         }
-        showCreate = false;
+        finally { creating = false; }
+        keypad?.Reset();
+        showList = false;
         requests = await PaymentService.GetAllAsync(WalletId);
         ShowRequest(req);
         _ = Announcer.AfterRequestCreatedAsync();
@@ -398,7 +376,8 @@
         catch (ReceiveAddressException ex) when (ex.Reason is ReceiveAddressFailure.TooManyUnusedPastLastUsed or ReceiveAddressFailure.TooManyUnusedPastLastPaid)
         {
             limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
-            showCreate = true;
+            activeRequest = null;
+            showList = false;
         }
         finally { renewing = false; }
     }

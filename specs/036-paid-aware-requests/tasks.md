@@ -276,20 +276,20 @@
 
 **Independent Test**: quickstart scenario 17, plus US4 acceptance scenarios 1 to 5.
 
-- [ ] T049 [P] [US4] Add the translation keys to `en.json` and `es.json`: `request.keypad.request`, `request.keypad.any_amount`, `request.keypad.add_note`, `request.keypad.list`, `request.keypad.currency_switch` (aria), `request.keypad.clear`, `request.keypad.backspace`.
-- [ ] T050 [P] [US4] Write `tests/DigiByte.Wallet.Tests/RequestKeypadEntryTests.cs`, modelled on the rules of DigiPay's `PosEntry` (`src/DigiByte.Pay.Web/Components/Pages/Pos/PosEntry.cs`):
+- [X] T049 [P] [US4] Add the translation keys to `en.json` and `es.json`: `request.keypad.request`, `request.keypad.any_amount`, `request.keypad.add_note`, `request.keypad.list`, `request.keypad.currency_switch` (aria), `request.keypad.clear`, `request.keypad.backspace`.
+- [X] T050 [P] [US4] Write `tests/DigiByte.Wallet.Tests/RequestKeypadEntryTests.cs`, modelled on the rules of DigiPay's `PosEntry` (`src/DigiByte.Pay.Web/Components/Pages/Pos/PosEntry.cs`):
   - Press digits and the decimal point; no second point.
   - No more decimals than the currency allows (8 for DGB, `FiatCurrencies.DecimalsFor` for the person's currency).
   - Leading zero rules; backspace; clear.
   - An amount that doesn't fit is rejected.
   - An empty value means "any amount".
   - Parsing always uses the invariant culture.
-- [ ] T051 [US4] Implement `src/DigiByte.Wallet/Services/RequestKeypadEntry.cs`. Makes T050 pass. Do not change DigiPay.
-- [ ] T052 [US4] Create `src/DigiByte.Web/Components/Shared/RequestKeypad.razor`:
+- [X] T051 [US4] Implement `src/DigiByte.Wallet/Services/RequestKeypadEntry.cs`. Makes T050 pass. Do not change DigiPay.
+- [X] T052 [US4] Create `src/DigiByte.Web/Components/Shared/RequestKeypad.razor`:
   - Large amount display with the DGB equivalent while in the person's currency.
   - DGB / person's-currency switch, starting from localStorage `dgb-request-currency` ("DGB" or "FIAT"). It starts in DGB the first time and whenever no price is available, without overwriting the remembered choice (FR-016a).
   - The digit grid, a "Request" button (an empty amount means any amount), an "Add a note" section for label and message (FR-023), and a list button.
-- [ ] T053 [US4] Make `src/DigiByte.Web/Pages/Payments.razor` open on `RequestKeypad` (FR-022). Request → create → show the QR code in one step. Remove the old form and the "+" button; keep the DigiPay merchant card below the list.
+- [X] T053 [US4] Make `src/DigiByte.Web/Pages/Payments.razor` open on `RequestKeypad` (FR-022). Request → create → show the QR code in one step. Remove the old form and the "+" button; keep the DigiPay merchant card below the list.
 - [ ] T054 [US4] Run quickstart scenario 17 and US4's acceptance scenarios, and record the results.
 
 ---
