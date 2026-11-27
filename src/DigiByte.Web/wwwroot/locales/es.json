@@ -421,8 +421,6 @@
   "request.status.cancelled": "Cancelado",
   "request.status.not_tracked": "Sin seguimiento",
   "request.arriving_note": "+{0} DGB en camino",
-  "request.received_of": "{0} de {1} DGB recibidos",
-  "request.any_amount_received": "{0} DGB recibidos",
   "request.stale": "Sin actualizar",
   "request.not_tracked_hint": "Este cobro se creó antes del seguimiento de pagos, así que su dirección es compartida. Su código QR y sus enlaces siguen funcionando, pero la billetera no puede saber si se pagó.",
   "request.single_key_hint": "Este tipo de billetera tiene una sola dirección, así que no puede distinguir los cobros. Su código QR y sus enlaces siguen funcionando.",

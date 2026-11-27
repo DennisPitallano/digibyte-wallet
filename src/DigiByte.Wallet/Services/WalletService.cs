@@ -776,6 +776,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             {
                 var result = await _historySync!.RefreshAsync(_activeWalletId!, HistoryNetwork, addresses, BuildHotHints());
                 ReportTransactions(result.Transactions, addresses);
+                EnsureUnlocked(); // locked while reading: no balance to show for a wallet that is no longer open
                 return new WalletBalance
                 {
                     ConfirmedSatoshis = result.ConfirmedSatoshis,
@@ -791,6 +792,7 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
         }
 
         var totalSatoshis = await _blockchain.GetBalanceAsync(addresses);
+        EnsureUnlocked(); // locked while reading: no balance to show for a wallet that is no longer open
 
         return new WalletBalance
         {
@@ -2002,6 +2004,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             if (availableUtxos.Count == 0)
                 throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
 
+            // The coin read awaited the chain: the app may have locked meanwhile, and the keys are gone. Nothing was sent yet.
+            EnsureUnlocked();
             var changeKey = _hd!.DeriveChangeKey(ActiveWallet!.NextChangeIndex);
             changeAddress = _hd.GetAddress(changeKey);
         }
@@ -2160,6 +2164,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
             if (availableUtxos.Count == 0)
                 throw new InvalidOperationException("No UTXOs available. Your wallet has no spendable funds.");
 
+            // The coin read awaited the chain: the app may have locked meanwhile, and the keys are gone. Nothing was sent yet.
+            EnsureUnlocked();
             var changeKey = _hd!.DeriveChangeKey(ActiveWallet!.NextChangeIndex);
             changeAddress = _hd.GetAddress(changeKey);
         }
@@ -2788,6 +2794,8 @@ public class WalletService : IWalletService, IDdSessionProvider, IDdFeeSource, I
                 }
             }
 
+            // The coin read awaited the chain: the app may have locked meanwhile, and the keys are gone. Nothing was sent yet.
+            EnsureUnlocked();
             destination = _hd!.DeriveReceivingAddress(0);
         }
 

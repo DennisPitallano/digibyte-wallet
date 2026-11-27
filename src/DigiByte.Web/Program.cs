@@ -334,7 +334,12 @@ builder.Services.AddScoped(sp => new UsageCounter(new HttpClient(), nodeApiUrl, 
 builder.Services.AddScoped<DigiDollarViewModel>();
 
 // ── App state, theme & UI services ──
-builder.Services.AddScoped<AppState>();
+// Locking the app locks the wallet: the decrypted sessions and keys are dropped (resolved lazily, so AppState and WalletService
+// never need each other to be built).
+builder.Services.AddScoped<AppState>(sp => new AppState(
+    sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>(),
+    sp.GetRequiredService<IConfiguration>(),
+    () => sp.GetRequiredService<WalletService>()));
 builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<BakuService>();
 builder.Services.AddScoped<NfcService>();

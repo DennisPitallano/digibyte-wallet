@@ -442,8 +442,6 @@
   "request.status.cancelled": "Cancelled",
   "request.status.not_tracked": "Not tracked",
   "request.arriving_note": "+{0} DGB arriving",
-  "request.received_of": "{0} of {1} DGB received",
-  "request.any_amount_received": "{0} DGB received",
   "request.stale": "Not up to date",
   "request.not_tracked_hint": "This request was made before payment tracking, so its address is shared. Its QR code and links still work, but the wallet can't tell whether it was paid.",
   "request.single_key_hint": "This kind of wallet has only one address, so it can't tell requests apart. Its QR code and links still work.",

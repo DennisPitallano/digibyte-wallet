@@ -1,4 +1,5 @@
 using DigiByte.Wallet.Models;
+using DigiByte.Wallet.Services;
 using Microsoft.JSInterop;
 
 namespace DigiByte.Web.Services;
@@ -13,6 +14,7 @@ public class AppState : IDisposable
     private readonly string _defaultNetwork;
     private Timer? _lockTimer;
     private DotNetObjectReference<AppState>? _dotNetRef;
+    private readonly Func<IWalletService>? _wallet;
 
     /// <summary>Auto-lock after this duration of inactivity.</summary>
     public TimeSpan LockTimeout { get; set; } = TimeSpan.FromMinutes(5);
@@ -39,9 +41,10 @@ public class AppState : IDisposable
     public event Action? OnChange;
     public event Action? OnAutoLocked;
 
-    public AppState(IJSRuntime js, IConfiguration config)
+    public AppState(IJSRuntime js, IConfiguration config, Func<IWalletService>? wallet = null)
     {
         _js = js;
+        _wallet = wallet;
         _defaultNetwork = config["DefaultNetwork"] ?? "mainnet";
         NetworkMode = _defaultNetwork;
         IsTestnet = _defaultNetwork != "mainnet";
@@ -95,12 +98,7 @@ public class AppState : IDisposable
     {
         if (!IsWalletUnlocked) return;
         _lockTimer?.Dispose();
-        _lockTimer = new Timer(_ =>
-        {
-            IsWalletUnlocked = false;
-            OnAutoLocked?.Invoke();
-            NotifyStateChanged();
-        }, null, LockTimeout, Timeout.InfiniteTimeSpan);
+        _lockTimer = new Timer(_ => Lock(), null, LockTimeout, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>Stop the lock timer (e.g. when wallet is manually locked).</summary>
@@ -117,10 +115,7 @@ public class AppState : IDisposable
     public void LockNow()
     {
         if (!IsWalletUnlocked) return;
-        IsWalletUnlocked = false;
-        StopLockTimer();
-        OnAutoLocked?.Invoke();
-        NotifyStateChanged();
+        Lock();
     }
 
     /// <summary>Called from JS when the tab/app becomes hidden.</summary>
@@ -128,10 +123,40 @@ public class AppState : IDisposable
     public void OnTabHidden()
     {
         if (!IsWalletUnlocked || !LockOnHidden) return;
+        Lock();
+    }
+
+    /// <summary>
+    /// The one lock path (timeout, lock when hidden, Lock now). The wallet's decrypted sessions, with their keys, are dropped
+    /// first, so nothing that reacts to <see cref="OnAutoLocked"/> can still find them in memory. Whatever must keep running
+    /// while locked (the payment-request watcher) works from stored addresses only.
+    /// </summary>
+    private void Lock()
+    {
         IsWalletUnlocked = false;
         StopLockTimer();
+        LockWallet();
         OnAutoLocked?.Invoke();
         NotifyStateChanged();
+    }
+
+    private void LockWallet()
+    {
+        if (_wallet is null) return;
+        try
+        {
+            var locking = _wallet().LockWalletAsync();
+            // WalletService clears its sessions synchronously; anything slower is still observed, so a failure is logged.
+            if (!locking.IsCompleted)
+                _ = locking.ContinueWith(t => Console.WriteLine($"[Lock] Locking the wallet failed: {t.Exception?.GetBaseException().GetType().Name}"),
+                    TaskContinuationOptions.OnlyOnFaulted);
+            else if (locking.IsFaulted)
+                Console.WriteLine($"[Lock] Locking the wallet failed: {locking.Exception?.GetBaseException().GetType().Name}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Lock] Locking the wallet failed: {ex.GetType().Name}");
+        }
     }
 
     /// <summary>Update the lock-on-hidden setting and sync to JS.</summary>
