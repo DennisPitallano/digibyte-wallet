@@ -193,7 +193,11 @@ public sealed class RequestWatcher : IAsyncDisposable
         _lastSweep = DateTime.UtcNow;
         var now = DateTime.UtcNow;
         var all = await _requests.GetAllAsync(walletId);
+        var unopenedBefore = PaidUnopened.Count;
         _last = all;
+        // Readers of the paid-unopened list (the tab count, the lock screen) learn of it even when no status changes,
+        // as on the first sweep after the app loads.
+        if (PaidUnopened.Count != unopenedBefore) Changed?.Invoke();
 
         string[] named;
         lock (_pendingAddresses)

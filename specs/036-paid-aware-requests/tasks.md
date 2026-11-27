@@ -421,3 +421,23 @@ Run on 2026-11-28 in the browser preview (`digibyte-web-clean`, Development, tes
 - Scenario 14 (old requests show Not tracked): covered by `RequestMigrationTests` and `PaymentRequestServiceTests`; not run in the browser (needs a device with pre-update requests).
 - To finish T022: run scenarios 1, 3 and 4 against a reachable testnet explorer (a deployed build, or a local one that isn't blocked by CORS) with a funded second wallet.
 
+### 2026-11-28: US2, the paid moment (T023 to T035)
+
+- After T035: 3,760 tests passing, none failing.
+- Departures from the task text:
+  - Extra translation keys: `request.arriving_hint`, `request.paid_toast_plain`, `request.lock_notice_details`; the tab count is `nav.request.count.one` / `.other` (singular and plural) rather than one `nav.request.count`.
+  - `request.notify.title` is the product name in both languages, so it is on `LocaleParityTests.SameInBoth`.
+  - Both service workers gained a `notificationclick` handler that brings the wallet to the front (or opens `/payments`).
+  - A toast's tap action opens `payments?request={id}`; the Request page opens that request.
+- Found in the browser: on app load the lock screen did not show the notice for a request already saved as paid and unopened, because the watcher only signalled on a status change. It now also signals when the paid-unopened list changes.
+
+### T036 (quickstart scenarios 2, 8, 9, 10): partly run, not ticked
+
+Run on 2026-11-28 in the browser preview with the same test wallet. Payments came from the Development build's demo data source (see T022), which "pays" every request at once:
+
+- Scenario 2 (Paid card on the request's own screen): **passed** with demo data. A new request ("Coffee") showed the full-screen card with "Paid!", the amount and the label; Done closed it and the request showed its status. Vibration not checked (desktop). "Payment arriving" not seen, because the demo payments are already confirmed.
+- Scenario 8 (paid while locked): **passed** with a request reset in storage to paid, unopened and unannounced: the lock screen showed "Request paid" with no amount.
+- Scenario 10 (summary and tab count): **passed**: after unlocking, one toast "1 request paid since you were last here", the Request tab badge "1" and its label "Request a payment. 1 paid request to look at". Tapping the toast opened the list; opening the request cleared the count and did not show the card again.
+- Scenario 9 (system notifications, hidden tab, details setting): **not run**. It needs notification permission granted in a real browser and the tab in the background.
+- Still to do for T036: scenario 9, and scenarios 2 and 8 with real testnet payments (including "Payment arriving" before the first confirmation and vibration on a phone).
+
