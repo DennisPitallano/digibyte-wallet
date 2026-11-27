@@ -19,6 +19,14 @@ DigiPay doesn't run that node in production, and the project doesn't want to. It
 
 So DigiPay can take DigiDollar the same way it takes DGB: straight to the merchant's own wallet, with nothing held by DigiPay. That makes spec 034 unnecessary and simplifies spec 033.
 
+## Clarifications
+
+### Session 2026-11-27
+
+- Q: Which DigiDollar account should a store's key come from? → A: The wallet's main DD account (`m/86'/20'/0'`), with the same privacy as DGB xpub mode today; no dedicated or per-store DD account.
+- Q: How should the merchant's wallet find DD paid to DigiPay addresses far past its 20-unused-address scan window? → A: The wallet's DD scan gets the same "look deeper" option DGB already has (up to 500 addresses), and the key screen points merchants to it. DigiPay never reuses addresses.
+- Q: Should DigiPay rely on one public explorer for DD, or fall back to a second one when it's down? → A: One configurable explorer per network, with no fallback. When it's down, DD waits and DGB keeps working.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Connect the store's DigiDollar key (Priority: P1)
@@ -124,7 +132,8 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - **Address reuse**: each payment gets a new index, and indexes are never reused, even for payments that expired unpaid. The donation address has its own reserved index.
 - **The explorer disagrees with itself, or a payment is reorganised out**: the payment status follows what the explorer shows now, as DGB payments follow their explorer today.
 - **Underpaid or overpaid DD**: handled as today for DD payments, in DD.
-- **DD addresses the wallet hasn't looked at**: DigiPay may give out many addresses that are never paid. The wallet must still find DD on any of them (Story 3, scenario 4).
+- **DD addresses the wallet hasn't looked at**: DigiPay may give out many addresses that are never paid. The wallet's deeper DD scan finds DD on any of them up to 500 addresses past the last paid one (Story 3, scenario 4). If a store gives out more than 500 DD addresses in a row with none paid, the Dashboard warns the merchant to run the deeper scan after the next payment arrives.
+- **Personal and store DD in one wallet**: a store's key is the wallet's main DD account, so anyone with the key can see all DD in that account, as with DGB xpub mode today. The wallet's key screen says so.
 - **Stores with DD on before this ships**: none in production (no node exists). Development and testnet stores without a DD key have DigiDollar turned off until a key is added.
 
 ## Requirements *(mandatory)*
@@ -154,7 +163,7 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 - **FR-013**: Buyer-choice locking and extra payments (spec 033 FR-024, FR-025) MUST work the same with DD watched on the explorer.
 - **FR-014**: When the explorer can't be reached, DD payments MUST wait (never fail), and MUST be updated once it answers again. DGB payments MUST NOT depend on it.
 - **FR-015**: "DD is available" (spec 033 FR-014 and the checkout and tip page) MUST come from whether the explorer is reachable, not a node.
-- **FR-016**: The explorer's address MUST be configurable per network (mainnet and testnet).
+- **FR-016**: DigiPay MUST use one explorer per network (mainnet and testnet), with its address configurable. There's no fallback explorer.
 
 **Custody removed**
 
@@ -166,8 +175,8 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 **Wallet**
 
 - **FR-021**: The DigiByte Wallet MUST let the user show and copy their DigiDollar account key for DigiPay, together with the first DD receive address it gives.
-- **FR-022**: The wallet MUST explain that the key lets a service create receive addresses and see payments to them, and can't spend.
-- **FR-023**: The wallet MUST find DD paid to DigiPay-derived addresses beyond the usual address gap, as it already does for DGB.
+- **FR-022**: The wallet MUST explain that the key lets a service create receive addresses and see payments to them (including all DD in the wallet's DigiDollar account), and can't spend.
+- **FR-023**: The wallet's DigiDollar scan MUST have the same deeper search DGB already has, reaching 500 addresses past the last paid one, and the key screen MUST tell merchants to use it if DD paid through DigiPay seems missing.
 
 **Docs**
 
@@ -192,10 +201,10 @@ Everything that existed only because DigiPay held DD goes away, and every word t
 
 ## Assumptions
 
-- The DD account key is the BIP86 Taproot account key at `m/86'/20'/0'` for mainnet (and the testnet coin type for testnet), the account the DigiByte Wallet already uses for DigiDollar. DD receive addresses are derived from it on the receive chain.
+- The DD account key is the BIP86 Taproot account key at `m/86'/20'/0'` for mainnet (and the testnet coin type for testnet), the wallet's main DigiDollar account, which it already uses. There's no dedicated or per-store DD account. DD receive addresses are derived from it on the receive chain.
 - The public explorer (digiexplorer.info, which the wallet already uses) exposes the DigiDollar data needed: outputs and confirmations by address. DigiPay reuses the wallet's existing explorer client.
 - Taking DD without custody needs no change to the DigiDollar protocol, NodeApi or the SPV gateway.
 - Production has never run a DigiDollar node, so no store holds DD with DigiPay today, and nothing needs migrating or paying out.
 - PR #131 (specs 033 and 034, unmerged) is reworked to this design before it's merged. Spec 034's code is removed from it, not merged and then deleted.
-- The wallet's existing deeper address search (it finds DGB beyond the usual 20-address gap) can be applied to the DD receive chain.
+- The wallet's existing deeper address search for DGB (500 addresses) can be applied to the DD receive chain, whose scan today stops at 20 unused addresses.
 - Payment privacy is the same as DGB today: anyone with the store's key could see its DD payments, so the key is treated as sensitive, though it can't spend.

@@ -37,4 +37,7 @@
   - The donation address uses one reserved index.
   - The wrong-account case is caught by the first-address check, since an account key doesn't record its path.
   - DD payments created while the explorer is down are still created.
-- Worth confirming in `/speckit-clarify` if wanted: whether a store should get a dedicated DigiDollar account (privacy between stores sharing one wallet) rather than the wallet's main one.
+- Clarified 2026-11-27:
+  - The key comes from the wallet's main DD account.
+  - The wallet gets a deeper DD scan (500 addresses).
+  - DigiPay uses one explorer per network, with no fallback.
