@@ -40,9 +40,6 @@
     {
         <div class="receipt-wrap" data-testid="request-receipt">
             <article class="receipt" aria-label="@L.T("request.receipt.title")">
-                @* The stamp repeats the status for the eye; the pill below carries it for screen readers. *@
-                <span class="receipt-stamp @StampClass(rq)" aria-hidden="true" data-testid="request-stamp">@StatusLabel(rq)</span>
-
                 <header class="receipt-head">
                     <div class="receipt-brand"><DigiLogo Size="18" /> @L.T("request.receipt.title")</div>
                     <p class="receipt-meta">@L.T("request.receipt.ref") @ShortRef(rq) · @rq.CreatedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture)</p>
@@ -65,6 +62,8 @@
                     {
                         <p class="receipt-amount-main text-slate-400">@L.T("request.receipt.any")</p>
                     }
+                    @* The stamp shows the status to the eye; the pill reads it out, with any arriving or stale note. *@
+                    <span class="receipt-stamp @StampClass(rq)" aria-hidden="true" data-testid="request-stamp">@StatusLabel(rq)</span>
                     <div class="flex justify-center mt-2"><RequestStatusPill Request="rq" ShowStatus="false" /></div>
                 </div>
 

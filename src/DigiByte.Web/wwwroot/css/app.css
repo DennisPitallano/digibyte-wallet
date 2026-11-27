@@ -1374,23 +1374,36 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 /* ── A payment request as a receipt (spec 036) ──────────────────────────────────────────────────────────────────────
    Paper with zig-zag top and bottom edges (a CSS mask, so it works on any page colour), a status stamp, itemised lines,
    a dashed tear line and the QR code on the stub below it. The shadow sits on the wrapper: a mask would clip it. */
-.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 12px 22px rgb(0 0 0 / 0.28)); }
+.receipt-wrap { width: 100%; max-width: 26rem; margin: 0 auto; filter: drop-shadow(0 8px 18px rgb(15 23 42 / 0.10)); }
+.dark .receipt-wrap { filter: drop-shadow(0 10px 20px rgb(0 0 0 / 0.30)); }
+
+/* Light: a plain rounded card. A cut edge has too little contrast against the near-white page and reads as stray
+   spikes, so the paper look comes from the type, the dashed rules and the stub instead. */
 .receipt {
-    --zz: 9px;
+    --zz: 0px;
     position: relative;
     background: #fffdf7;
     color: #1e293b;
+    border: 1px solid #e7e2d6;
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+/* Dark: scalloped top and bottom edges, half-circle bites cut with a mask, so it works on any page colour. */
+.dark .receipt {
+    --zz: 6px;
+    background: #0b1f3f;
+    color: #e2e8f0;
+    border: 0;
+    border-radius: 0;
     padding: calc(var(--zz) + 1.25rem) 1.25rem calc(var(--zz) + 1.25rem);
     -webkit-mask:
-        conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--zz)) var(--zz) repeat-x,
-        conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--zz)) var(--zz) repeat-x,
-        linear-gradient(#000 0 0) center / 100% calc(100% - 2 * var(--zz)) no-repeat;
+        radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
+        radial-gradient(var(--zz) at 50% 100%, #0000 98%, #000) bottom / calc(2 * var(--zz)) 51% repeat-x;
             mask:
-        conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--zz)) var(--zz) repeat-x,
-        conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--zz)) var(--zz) repeat-x,
-        linear-gradient(#000 0 0) center / 100% calc(100% - 2 * var(--zz)) no-repeat;
+        radial-gradient(var(--zz) at 50% 0, #0000 98%, #000) top / calc(2 * var(--zz)) 51% repeat-x,
+        radial-gradient(var(--zz) at 50% 100%, #0000 98%, #000) bottom / calc(2 * var(--zz)) 51% repeat-x;
 }
-.dark .receipt { background: #0b1f3f; color: #e2e8f0; }
 
 .receipt-head { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
 .receipt-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.7rem; color: #64748b; }
@@ -1420,8 +1433,8 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 
 /* The status stamp: tilted, inked in the status colour. */
 .receipt-stamp {
-    position: absolute; top: calc(var(--zz) + 4.1rem); right: 0.9rem;
-    transform: rotate(-11deg);
+    display: inline-block; margin-top: 0.6rem;
+    transform: rotate(-6deg);
     border: 2.5px solid currentColor; border-radius: 0.4rem;
     padding: 0.15rem 0.5rem;
     font-weight: 900; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
