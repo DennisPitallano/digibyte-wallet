@@ -100,6 +100,8 @@ builder.Services.AddScoped<IRequestAddressSource>(sp => sp.GetRequiredService<Wa
 builder.Services.AddScoped<PaymentRequestService>();
 builder.Services.AddScoped<RequestWatcher>();
 builder.Services.AddScoped<RequestAnnouncer>();
+// The "+N DGB received" notice: one for the app, so leaving and reopening Home or Receive never says it twice.
+builder.Services.AddScoped<IncomingPaymentAnnouncer>();
 builder.Services.AddScoped<RequestAttentionState>();
 builder.Services.AddScoped<PriceQuoteService>();
 // Multisig follows the network chosen in Settings (mainnet / testnet / regtest), like the rest of the wallet.

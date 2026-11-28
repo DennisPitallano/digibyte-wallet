@@ -1572,3 +1572,27 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
 
 @media (prefers-reduced-motion: reduce) { .keypad-switch-thumb { transition: none; } }
 
+/* A request waiting to be paid looks alive: dots after the stamp's word, rings pulsing out from the QR code,
+   and a pulsing dot in the list's pill. Still when the device asks for reduced motion. */
+.waiting-dots { display: inline-flex; gap: 2px; margin-left: 3px; vertical-align: middle; }
+.waiting-dots > i { width: 3px; height: 3px; border-radius: 9999px; background: currentColor; display: block; }
+.qr-listen { position: relative; display: inline-flex; border-radius: 1rem; }
+.qr-listen > .qr-frame { position: relative; z-index: 1; }
+.qr-listen-ring { display: none; position: absolute; inset: 0; border-radius: 1rem; border: 2px solid rgb(0 102 255 / 0.6); pointer-events: none; }
+.waiting-pulse { position: relative; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; flex-shrink: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .waiting-dots > i { animation: waiting-dot 1.2s ease-in-out infinite; }
+    .waiting-dots > i:nth-child(2) { animation-delay: 0.15s; }
+    .waiting-dots > i:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes waiting-dot { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
+    .qr-listen.is-waiting > .qr-listen-ring { display: block; animation: qr-listen 2.4s cubic-bezier(.2,.6,.3,1) infinite; }
+    .qr-listen.is-waiting > .qr-listen-ring:nth-of-type(2) { animation-delay: 1.2s; }
+    @keyframes qr-listen { 0% { transform: scale(1); opacity: 0.9; } 100% { transform: scale(1.14); opacity: 0; } }
+
+    .waiting-pulse::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: currentColor;
+        animation: waiting-pulse 1.6s ease-out infinite; }
+    @keyframes waiting-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.6); opacity: 0; } }
+}
+
