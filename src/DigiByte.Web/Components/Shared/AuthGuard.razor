@@ -1,6 +1,7 @@
 @inject WalletService WalletService
 @inject AppState AppState
 @inject NavigationManager Nav
+@implements IDisposable
 
 @if (isLoading)
 {
@@ -18,8 +19,10 @@
         </div>
     </div>
 }
-else if (AppState.IsWalletUnlocked)
+else if (WalletService.IsUnlocked)
 {
+    @* The wallet's own session decides, not AppState.IsWalletUnlocked: the two can disagree after a reload or a lock,
+       and a page shown over a locked session throws the first time it needs a key (UnlockGate). *@
     @ChildContent
 }
 
@@ -30,17 +33,12 @@ else if (AppState.IsWalletUnlocked)
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if any wallets exist
+        AppState.OnChange += OnAppStateChanged;
         var wallets = await WalletService.GetAllWalletsAsync();
-        if (wallets.Count == 0)
+        if (UnlockGate.RedirectFor(UnlockGate.Decide(wallets.Count > 0, WalletService.IsUnlocked)) is { } to)
         {
-            Nav.NavigateTo("/welcome");
-            return;
-        }
-
-        if (!WalletService.IsUnlocked)
-        {
-            Nav.NavigateTo("/unlock");
+            if (to == UnlockGate.UnlockPath) AppState.IsWalletUnlocked = false;
+            Nav.NavigateTo(to);
             return;
         }
 
@@ -48,4 +46,21 @@ else if (AppState.IsWalletUnlocked)
         AppState.IsWalletUnlocked = true;
         isLoading = false;
     }
+
+    // Locked while the page is open (any lock path, including ones that only flip AppState): leave for the unlock screen.
+    private void OnAppStateChanged()
+    {
+        // No wallet left (wiped, last one deleted): the page doing that goes to /welcome itself.
+        if (isLoading || WalletService.IsUnlocked || !AppState.IsWalletCreated) return;
+        _ = InvokeAsync(() =>
+        {
+            if (WalletService.IsUnlocked || !AppState.IsWalletCreated) return;
+            AppState.IsWalletUnlocked = false;
+            if (!Nav.Uri.Contains(UnlockGate.UnlockPath, StringComparison.OrdinalIgnoreCase))
+                Nav.NavigateTo(UnlockGate.UnlockPath);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => AppState.OnChange -= OnAppStateChanged;
 }

@@ -15,6 +15,7 @@
 
 <PageTitle>@L.T("payments.page_title")</PageTitle>
 
+<AuthGuard>
 <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between slide-up">
         <h2 class="page-title">@L.T("request.title")</h2>
@@ -302,6 +303,7 @@
         </svg>
     </a>
 </div>
+</AuthGuard>
 
 @code {
     [CascadingParameter(Name = "Locale")] public string? Locale { get; set; }
@@ -345,6 +347,8 @@
     {
         if (activeRequest is not { } r || confirming is not { } what) return;
         confirming = null;
+        // Locked: there is no active wallet to cancel or remove the request in.
+        if (SendToUnlockIfLocked()) return;
         if (what == "cancel")
         {
             await PaymentService.CancelAsync(WalletId, r.Id);
@@ -379,8 +383,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Opened while locked (a reload, a link): <AuthGuard> sends the person to unlock. Handing out an address now
-        // would throw and show the error page instead.
+        // Opened while locked (a reload, a link): the <AuthGuard> around the page sends the person to unlock. Handing out
+        // an address now would throw and show the error page instead.
         if (!WalletService.IsUnlocked) return;
         AppState.ResetLockTimer();
         Watcher.Changed += OnWatcherChanged;
@@ -421,9 +425,18 @@
 
     private string? limitMessage;
 
+    // The wallet locked after the page opened (the keys are gone): the unlock screen, never the error page.
+    private bool SendToUnlockIfLocked()
+    {
+        if (WalletService.IsUnlocked) return false;
+        AppState.IsWalletUnlocked = false;
+        Nav.NavigateTo(UnlockGate.UnlockPath);
+        return true;
+    }
+
     private async Task CreateFromKeypad((decimal? Amount, bool InFiat, string? Label, string? Message) input)
     {
-        if (creating) return;
+        if (creating || SendToUnlockIfLocked()) return;
         creating = true;
         limitMessage = null;
         limitReached = false;
@@ -454,6 +467,12 @@
         catch (ReceiveAddressException ex)
         {
             limitMessage = ex.Message;
+            return;
+        }
+        catch (InvalidOperationException) when (!WalletService.IsUnlocked)
+        {
+            // Locked while the address was being handed out.
+            SendToUnlockIfLocked();
             return;
         }
         finally { creating = false; }
@@ -549,7 +568,7 @@
 
     private async Task RenewAsync()
     {
-        if (activeRequest is not { } old || renewing) return;
+        if (activeRequest is not { } old || renewing || SendToUnlockIfLocked()) return;
         renewing = true;
         try
         {
@@ -565,6 +584,10 @@
             limitMessage = L.T("request.limit_reached", WalletService.ReceiveGapLimit, requests.Count(RequestWatcher.IsOpen));
             activeRequest = null;
             showList = false;
+        }
+        catch (InvalidOperationException) when (!WalletService.IsUnlocked)
+        {
+            SendToUnlockIfLocked();
         }
         finally { renewing = false; }
     }
