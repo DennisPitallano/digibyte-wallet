@@ -17,6 +17,7 @@
 @inject NotificationService Notifications
 @inject FirstReceiveCoordinator FirstReceive
 @inject SoundService Sounds
+@inject IncomingPaymentAnnouncer Announcer
 @inject MultisigAttentionState MultisigAttention
 @inject ActiveWalletContext ActiveWalletContext
 
@@ -642,7 +643,6 @@
         if (activeCardIndex < 0) activeCardIndex = 0;
 
         _refreshLoop = new AutoRefreshLoop(JS);
-        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
         FirstReceive.Changed += OnFirstReceiveChanged;
         WalletService.AddressSearchFinished += OnAddressSearchFinished;
 
@@ -736,7 +736,6 @@
     // The timer and the pacing live in AutoRefreshLoop / RefreshPacer, which the Receive page uses too (spec 025).
     // Created in OnInitializedAsync, not injected: each belongs to this page and ends with it.
     private AutoRefreshLoop _refreshLoop = null!;
-    private IncomingPaymentAnnouncer _announcer = null!;
     private bool _isFetching;
     private string? _lastDataSignature;
 
@@ -845,7 +844,7 @@
             if (snapshot.Transactions is { Count: > 0 } cachedTxs)
             {
                 transactions = cachedTxs;
-                _announcer.Seed(ActiveWalletId, cachedTxs);
+                Announcer.Seed(ActiveWalletId, cachedTxs);
                 // Saved history is enough to know this wallet did not start empty; it never celebrates (spec 025, FR-011).
                 await FirstReceive.ObserveAsync(ActiveWalletId, cachedTxs, HistorySource.SavedSnapshot);
             }
@@ -991,7 +990,9 @@
                 var firstPayment = await FirstReceive.ObserveAsync(walletId, transactions, FirstReceiveCoordinator.SourceOf(load));
                 // The wallet's first-receive state is stored now, so the "search further" offer may ask again (spec 027).
                 historyLoadVersion++;
-                await _announcer.AnnounceAsync(walletId, transactions, hideBalance, firstPayment?.TxIds);
+                await Announcer.AnnounceAsync(walletId, transactions, hideBalance, firstPayment?.TxIds);
+                // Saved as Receive and Activity save it, so the next app start begins from it and says nothing twice.
+                if (load.Complete) _ = Snapshots.SaveTransactionsAsync(walletId, transactions.Take(50).ToList());
             }
 
             // Start poller if any txs are still under 6 confirmations
@@ -1305,7 +1306,7 @@
         balance = new WalletBalance();
         _animToken++; animatedDgb = null;
         transactions = [];
-        _announcer.Forget();
+        Announcer.Forget();
         txLoadedOnce = false;
         balanceUnsettled = txUnsettled = _settledRefetchDone = balanceLoadedOnce = false;
         receivingAddress = "";
@@ -1365,7 +1366,7 @@
             balance = new WalletBalance();
         _animToken++; animatedDgb = null;
             transactions = [];
-            _announcer.Forget();
+            Announcer.Forget();
             txLoadedOnce = false;
             balanceUnsettled = txUnsettled = _settledRefetchDone = balanceLoadedOnce = false;
             receivingAddress = "";

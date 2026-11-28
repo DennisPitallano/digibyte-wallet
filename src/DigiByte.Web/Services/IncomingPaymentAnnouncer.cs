@@ -5,10 +5,11 @@ using Microsoft.JSInterop;
 namespace DigiByte.Web.Services;
 
 /// <summary>
-/// Says "payment received" once per incoming transaction that appears while a page is open. One per page that checks
-/// (Home, Receive): the list of transactions already seen lives exactly as long as the page, starts from the wallet's saved
-/// history when there is one, and starts again on a wallet switch. This is Home's notice, moved here so Receive shows the
-/// same one (spec 025, FR-022, FR-026).
+/// Says "payment received" once per incoming transaction, for the whole app. Home and Receive share this one instance:
+/// the list of transactions already seen lasts as long as the app, starts from the wallet's saved history when there is
+/// one, and starts again on a wallet switch. It used to belong to each page, so every return to Home seeded it again
+/// from saved history that did not have the payment yet, and the same notice came back on each visit
+/// (spec 025, FR-022, FR-026).
 /// </summary>
 public sealed class IncomingPaymentAnnouncer(NotificationService notifications, IJSRuntime js, SoundService? sounds = null)
 {

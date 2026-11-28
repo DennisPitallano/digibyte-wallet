@@ -10,6 +10,7 @@
 @inject IJSRuntime JS
 @inject FirstReceiveCoordinator FirstReceive
 @inject SoundService Sounds
+@inject IncomingPaymentAnnouncer Announcer
 @inject NotificationService Notifications
 @inject LocalizationService L
 @using DigiByte.Wallet.Services
@@ -386,7 +387,6 @@
         // Someone showing this page is waiting to be paid, so it checks for incoming payments by itself, at Home's pace
         // (spec 025, FR-024). Both pieces belong to this page and end with it.
         _refreshLoop = new AutoRefreshLoop(JS);
-        _announcer = new IncomingPaymentAnnouncer(Notifications, JS, Sounds);
         try { hideAmounts = await Storage.GetAsync("pref:hideBalance") == "1"; } catch { }
 
         _ = LoadHistoryAsync(); // background: the page and the QR code never wait for it
@@ -400,7 +400,6 @@
 
     // ── Incoming payments while this page is open (spec 025, FR-024 to FR-026) ──
     private AutoRefreshLoop _refreshLoop = null!;
-    private IncomingPaymentAnnouncer _announcer = null!;
     private bool hideAmounts;
     private string? _lastCheckSignature;
 
@@ -449,7 +448,7 @@
     private async Task ReportLoadAsync(string walletId, WalletService.HistoryLoad load)
     {
         var firstPayment = await FirstReceive.ObserveAsync(walletId, load.Transactions, FirstReceiveCoordinator.SourceOf(load));
-        await _announcer.AnnounceAsync(walletId, load.Transactions, hideAmounts, firstPayment?.TxIds);
+        await Announcer.AnnounceAsync(walletId, load.Transactions, hideAmounts, firstPayment?.TxIds);
         if (load.Complete)
             _ = Snapshots.SaveTransactionsAsync(walletId, load.Transactions.Take(50).ToList());
     }
@@ -532,7 +531,7 @@
             {
                 // Saved history is already known: it is never announced, and it is enough to record that this wallet did
                 // not start empty (spec 025, FR-011).
-                _announcer.Seed(wallet.Id, saved);
+                Announcer.Seed(wallet.Id, saved);
                 await FirstReceive.ObserveAsync(wallet.Id, saved, HistorySource.SavedSnapshot);
             }
 
