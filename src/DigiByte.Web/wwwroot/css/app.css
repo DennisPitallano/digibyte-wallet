@@ -1457,3 +1457,61 @@ main:not(.main-with-nav) .sticky-action { padding-bottom: calc(0.5rem + env(safe
     .receipt-wrap { animation: receipt-print 420ms cubic-bezier(.2,.8,.2,1) both; }
     @keyframes receipt-print { from { opacity: 0; transform: translateY(-14px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
 }
+
+/* ── The Request tab's keypad keys (spec 036, US4) ─────────────────────────────────────────────────────────────────
+   Each key is a raised tile with a soft lower edge, so it reads as pressable; pressing sinks it. The point and the
+   delete key are quieter than the digits. */
+.keypad-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; outline: none; }
+.keypad-key {
+    position: relative;
+    height: 3.75rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 1rem;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.625rem; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    background: linear-gradient(180deg, #ffffff, #f4f6f9);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 0 #d8dee8, 0 4px 10px -6px rgb(15 23 42 / 0.18);
+    transition: transform 80ms ease-out, box-shadow 80ms ease-out, background-color 120ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+}
+.keypad-key:hover { background: linear-gradient(180deg, #ffffff, #eef2f7); }
+.keypad-key:active, .keypad-key.is-pressed {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 #d8dee8, 0 1px 4px -2px rgb(15 23 42 / 0.2);
+    background: linear-gradient(180deg, #eef2f7, #e6ebf2);
+}
+.keypad-key:focus-visible { outline: 2px solid #0066ff; outline-offset: 2px; }
+.keypad-key:disabled { opacity: 0.35; transform: none; box-shadow: none; cursor: default; }
+.keypad-key.is-action { font-size: 1.5rem; color: #64748b; background: transparent; border-color: transparent; box-shadow: none; }
+.keypad-key.is-action:hover { background: rgb(100 116 139 / 0.08); }
+.keypad-key.is-action:active, .keypad-key.is-action.is-pressed { background: rgb(100 116 139 / 0.16); transform: scale(0.96); }
+
+.dark .keypad-key {
+    color: #f8fafc;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.04));
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow: 0 2px 0 rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.dark .keypad-key:hover { background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.06)); }
+.dark .keypad-key:active, .dark .keypad-key.is-pressed {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.03));
+    box-shadow: 0 0 0 rgb(0 0 0 / 0.35), inset 0 1px 2px rgb(0 0 0 / 0.3);
+}
+.dark .keypad-key:focus-visible { outline-color: #60a5fa; }
+.dark .keypad-key.is-action { color: #94a3b8; background: transparent; border-color: transparent; box-shadow: none; }
+.dark .keypad-key.is-action:hover { background: rgb(255 255 255 / 0.06); }
+.dark .keypad-key.is-action:active, .dark .keypad-key.is-action.is-pressed { background: rgb(255 255 255 / 0.1); }
+
+/* The amount above the keys: large figures, and a quiet "Any amount" while nothing is typed. */
+.keypad-amount { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 2.5rem; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; word-break: break-all; min-height: 2.75rem; }
+.keypad-amount-empty { font-size: 1.5rem; font-weight: 600; letter-spacing: 0; color: #94a3b8; }
+.dark .keypad-amount-empty { color: #64748b; }
+
+@media (prefers-reduced-motion: reduce) {
+    .keypad-key { transition: none; }
+    .keypad-key:active, .keypad-key.is-pressed { transform: none; }
+}

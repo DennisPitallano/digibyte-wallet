@@ -4,6 +4,7 @@
 @using DigiByte.Wallet.Models
 @using DigiByte.Wallet.Services
 @inject LocalizationService L
+@inject IJSRuntime JS
 
 <div class="card scale-in p-4 flex flex-col gap-4" data-testid="request-keypad">
     <div class="flex items-center justify-between gap-2">
@@ -19,10 +20,10 @@
 
     @* The amount as typed, in the chosen currency; its DGB equivalent while typing in the person's currency. *@
     <div class="text-center" aria-live="polite">
-        <p class="text-4xl font-bold tabular-nums text-slate-900 dark:text-white break-all" data-testid="request-keypad-amount">
+        <p class="keypad-amount text-slate-900 dark:text-white" data-testid="request-keypad-amount">
             @if (typed.Length == 0)
             {
-                <span class="text-slate-300 dark:text-slate-600">@L.T("request.keypad.any_amount")</span>
+                <span class="keypad-amount-empty">@L.T("request.keypad.any_amount")</span>
             }
             else if (InFiat)
             {
@@ -43,15 +44,17 @@
         }
     </div>
 
-    <div class="grid grid-cols-3 gap-2" data-testid="request-keypad-keys">
+    @* Typing works too once the keypad has focus (any key tapped, or Tab to it): digits, . or , for the point,
+       Backspace, Escape to clear. *@
+    <div class="keypad-grid" role="group" tabindex="-1" data-testid="request-keypad-keys" @onkeydown="OnKeyDown">
         @foreach (var key in Keys)
         {
             var k = key;
-            <button type="button" class="h-14 rounded-2xl bg-slate-100 dark:bg-dgb-900 text-2xl font-semibold text-slate-900 dark:text-white active:scale-95 transition-transform disabled:opacity-30"
-                    aria-label="@KeyLabel(k)" disabled="@(k == "." && Decimals == 0)" data-key="@k" @onclick="() => Press(k)">
+            <button type="button" class="keypad-key @(k is "." or "back" ? "is-action" : "") @(pressedKey == k ? "is-pressed" : "")"
+                    aria-label="@KeyLabel(k)" disabled="@(k == "." && Decimals == 0)" data-key="@k" @onclick="() => Tap(k)">
                 @if (k == "back")
                 {
-                    <svg class="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                    <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" />
                     </svg>
                 }
@@ -108,6 +111,36 @@
     private int Decimals => RequestKeypadEntry.DecimalsFor(InFiat ? FiatCurrency : RequestKeypadEntry.Dgb);
 
     private void Press(string key) => typed = RequestKeypadEntry.Press(typed, key, Decimals);
+
+    private string? pressedKey;
+
+    // A tap: the key's own press, plus a very short vibration where the device has one.
+    private async Task Tap(string key)
+    {
+        Press(key);
+        try { await JS.InvokeVoidAsync("domHelpers.haptic", new[] { 8 }); } catch { }
+    }
+
+    // A physical keyboard: the same keys, shown pressed for a moment so the screen follows the fingers.
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        var key = e.Key switch
+        {
+            { Length: 1 } k when char.IsAsciiDigit(k[0]) => k,
+            "." or "," or "Decimal" => ".",
+            "Backspace" => "back",
+            "Delete" or "Escape" => "clear",
+            _ => null,
+        };
+        if (key is null || e.CtrlKey || e.MetaKey || e.AltKey) return;
+        if (key == "." && Decimals == 0) return;
+
+        Press(key);
+        pressedKey = key == "clear" ? null : key;
+        StateHasChanged();
+        await Task.Delay(110);
+        pressedKey = null;
+    }
 
     private async Task SetCurrency(bool fiat)
     {
