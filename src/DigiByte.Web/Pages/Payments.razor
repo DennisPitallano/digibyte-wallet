@@ -63,7 +63,8 @@
                         <p class="receipt-amount-main text-slate-400">@L.T("request.receipt.any")</p>
                     }
                     @* The stamp shows the status to the eye; the pill reads it out, with any arriving or stale note. *@
-                    <span class="receipt-stamp @StampClass(rq)" aria-hidden="true" data-testid="request-stamp">@StatusLabel(rq)</span>
+                    <span class="receipt-stamp @StampClass(rq)" aria-hidden="true" data-testid="request-stamp">@StatusLabel(rq)@if (rq.Status == PaymentRequestStatus.Waiting)
+                        {<span class="waiting-dots"><i></i><i></i><i></i></span>}</span>
                     <div class="flex justify-center mt-2"><RequestStatusPill Request="rq" ShowStatus="false" /></div>
                 </div>
 
@@ -145,6 +146,10 @@
                     @* The stub: tear here, scan to pay. *@
                     <div class="receipt-tear" aria-hidden="true"></div>
                     <div class="receipt-stub">
+                        @* While it waits, rings pulse out from the code: the wallet is listening for the payment. *@
+                        <div class="qr-listen @(rq.Status == PaymentRequestStatus.Waiting ? "is-waiting" : "")" data-testid="request-qr">
+                        <span class="qr-listen-ring" aria-hidden="true"></span>
+                        <span class="qr-listen-ring" aria-hidden="true"></span>
                         <div class="qr-frame">
                             <img src="@activeQrUrl" alt="@L.T("payments.qr_alt")" class="w-44 h-44 rounded-lg" />
                             <div class="absolute inset-0 flex items-center justify-center">
@@ -152,6 +157,7 @@
                                     <DigiLogo Size="28" />
                                 </div>
                             </div>
+                        </div>
                         </div>
                         <p class="receipt-stub-caption">@L.T("request.receipt.scan")</p>
                         <p class="receipt-uri">@rq.ToUri()</p>

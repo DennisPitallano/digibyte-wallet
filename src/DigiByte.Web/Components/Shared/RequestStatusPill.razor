@@ -7,7 +7,13 @@
 <span class="inline-flex flex-wrap items-center gap-1.5 text-xs font-semibold" data-testid="request-status">
     @if (ShowStatus)
     {
-        <span class="px-2 py-0.5 rounded-full @PillClass">@StatusText</span>
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full @PillClass">
+            @if (Request.Status == PaymentRequestStatus.Waiting)
+            {
+                <span class="waiting-pulse" aria-hidden="true"></span>
+            }
+            @StatusText
+        </span>
     }
     else
     {
