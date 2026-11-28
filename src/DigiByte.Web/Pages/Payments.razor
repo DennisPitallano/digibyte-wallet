@@ -28,7 +28,7 @@
     @if (OnKeypad)
     {
         <RequestKeypad @ref="keypad" Quote="quote" FiatCurrency="@AppState.FiatCurrency" @bind-InFiat="inFiat"
-                       Busy="creating" Error="@limitMessage" OnRequest="CreateFromKeypad" OnShowList="ShowList" />
+                       Busy="creating" Error="@limitMessage" OnRequest="CreateFromKeypad" OnShowList="ShowList" RequestCount="requests.Count" />
         @if (limitReached)
         {
             <button type="button" class="btn-secondary btn-sm self-center" data-testid="request-limit-open-list" @onclick="ShowOpenRequests">@L.T("request.limit_open_list")</button>
